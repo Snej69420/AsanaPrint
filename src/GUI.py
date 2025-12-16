@@ -10,6 +10,7 @@ Single-file prototype. For production, split into modules.
 
 import sys
 import os
+from math import floor
 from pathlib import Path
 import tempfile
 
@@ -24,12 +25,147 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
+# Normalize Asana columns
+ASANA_MAPPING = {
+    'Task Id': 'TaskId',
+    'Name': 'TaskName',
+    'Start Date': 'StartDate',
+    'Due Date': 'EndDate',
+    'Created At': 'Created',
+    'Completed At': 'Completed',
+}
+IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created", "Completed")
+FLOOR_COLUMN = "Verdiep"
+SUBCONTRACTOR = "O.A."
+
 class GanttApp(QMainWindow):
+    def load_file(self, cl):
+        btn = QPushButton("Selecteer een Asana CSV")
+        btn.clicked.connect(self.load_csv)
+        cl.addWidget(btn)
+
+    def date_selector(self, cl):
+        cl.addWidget(QLabel("Start Datum ≥"))
+        self.start_date = QDateEdit()
+        self.start_date.setCalendarPopup(True)
+        self.start_date.setDisplayFormat("dd-MM-yyyy")
+        self.start_date.setDate(QDate.currentDate().addMonths(-3))
+        cl.addWidget(self.start_date)
+
+        cl.addWidget(QLabel("Eind Datum ≤"))
+        self.end_date = QDateEdit()
+        self.end_date.setCalendarPopup(True)
+        self.end_date.setDisplayFormat("dd-MM-yyyy")
+        self.end_date.setDate(QDate.currentDate().addMonths(6))
+        cl.addWidget(self.end_date)
+
+    def assigned(self, cl):
+        cl.addWidget(QLabel("Verantwoordelijke:"))
+        self.assignee_list = QListWidget()
+        self.assignee_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        cl.addWidget(self.assignee_list)
+
+    def add_search(self, layout, name):
+        search_field = QLineEdit()
+        search_field.setPlaceholderText(f"Zoek een {name}")
+        search_field.textChanged.connect(
+            lambda text: self.filter_list(self.optionsList[name], text)
+        )
+        layout.addWidget(search_field)
+
+    def add_select_all(self, layout, name):
+        select_all_button = QPushButton("Selecteer Alles")
+        select_all_button.clicked.connect(
+            lambda: self.select_all_items(self.optionsList[name])
+        )
+        layout.addWidget(select_all_button)
+
+
+    def add_selector(self, name:str, search:bool = False, select_all:bool = False):
+        self.selectors.addWidget(QLabel(f"{name}:"))
+        search_select = QHBoxLayout()
+        if search:
+            self.add_search(search_select, name)
+
+        if select_all:
+            self.add_select_all(search_select, name)
+        self.selectors.addLayout(search_select)
+
+        self.optionsList[name] = QListWidget()
+        self.optionsList[name].setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.selectors.addWidget(self.optionsList[name])
+
+        self.populate(name)
+
+    def floor_selector(self, cl):
+        cl.addWidget(QLabel("Verdieping:"))
+        search_select = QHBoxLayout()
+        floor_search = QLineEdit()
+        floor_search.setPlaceholderText("Zoek een verdieping")
+        floor_search.textChanged.connect(
+            lambda text: self.filter_list(self.floor_list, text)
+        )
+        search_select.addWidget(floor_search)
+
+        btn_all_floors = QPushButton("Selecteer Alles")
+        btn_all_floors.clicked.connect(
+            lambda: self.select_all_items(self.floor_list)
+        )
+        search_select.addWidget(btn_all_floors)
+        cl.addLayout(search_select)
+
+        self.floor_list = QListWidget()
+        self.floor_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        cl.addWidget(self.floor_list)
+
+    def subcontractor_selector(self, cl):
+        cl.addWidget(QLabel("Onderaannemers:"))
+
+        search_select = QHBoxLayout()
+        self.oa_search = QLineEdit()
+        self.oa_search.setPlaceholderText("Zoek een onderaannemer")
+        self.oa_search.textChanged.connect(
+            lambda text: self.filter_list(self.subcontractor_list, text)
+        )
+        search_select.addWidget(self.oa_search)
+        btn_oa_all = QPushButton("Selecteer Alles")
+        btn_oa_all.clicked.connect(
+            lambda: self.select_all_items(self.subcontractor_list)
+        )
+        search_select.addWidget(btn_oa_all)
+        cl.addLayout(search_select)
+
+        self.subcontractor_list = QListWidget()
+        self.subcontractor_list.setSelectionMode(QListWidget.MultiSelection)
+        cl.addWidget(self.subcontractor_list)
+
+    def apply(self, cl):
+        self.apply_btn = QPushButton("Pas filters toe en creeer een gantt chart")
+        self.apply_btn.clicked.connect(self.apply_filters)
+        self.apply_btn.setEnabled(False)
+        cl.addWidget(self.apply_btn)
+
+    def export(self, cl):
+        self.export_png = QPushButton("Export naar PNG")
+        self.export_pdf = QPushButton("Export naar PDF")
+        self.export_html = QPushButton("Export naar HTML")
+        self.export_png.setEnabled(False)
+        self.export_pdf.setEnabled(False)
+        self.export_html.setEnabled(False)
+        cl.addWidget(self.export_png)
+        cl.addWidget(self.export_pdf)
+        cl.addWidget(self.export_html)
+
+        self.export_png.clicked.connect(lambda: self.export_chart("png"))
+        self.export_pdf.clicked.connect(lambda: self.export_chart("pdf"))
+        self.export_html.clicked.connect(lambda: self.export_chart("html"))
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Asana Gantt Viewer")
         self.resize(1280, 720)
 
+        self.optionsList = {}
         self.df = None
         self.current_fig = None
 
@@ -42,91 +178,16 @@ class GanttApp(QMainWindow):
         cl = QVBoxLayout(controls)
 
         # Load
-        btn = QPushButton("Load Asana CSV")
-        btn.clicked.connect(self.load_csv)
-        cl.addWidget(btn)
+        self.load_file(cl)
+        self.date_selector(cl)
 
-        # Date filters
-        cl.addWidget(QLabel("Start Date ≥"))
-        self.start_date = QDateEdit()
-        self.start_date.setCalendarPopup(True)
-        self.start_date.setDisplayFormat("yyyy-MM-dd")
-        self.start_date.setDate(QDate.currentDate().addMonths(-3))
-        cl.addWidget(self.start_date)
+        # selectors
+        # PLACEHOLDER for dynamic selectors
+        self.selectors = QVBoxLayout()
+        cl.addLayout(self.selectors)
 
-        cl.addWidget(QLabel("Due Date ≤"))
-        self.end_date = QDateEdit()
-        self.end_date.setCalendarPopup(True)
-        self.end_date.setDisplayFormat("yyyy-MM-dd")
-        self.end_date.setDate(QDate.currentDate().addMonths(6))
-        cl.addWidget(self.end_date)
-
-        # Assignee
-        cl.addWidget(QLabel("Assignee(s):"))
-        self.assignee_list = QListWidget()
-        self.assignee_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        cl.addWidget(self.assignee_list)
-
-        # Floors
-        cl.addWidget(QLabel("Verdiep (+00, +01, ...):"))
-
-
-        self.floor_search = QLineEdit()
-        self.floor_search.setPlaceholderText("Search verdiep...")
-        self.floor_search.textChanged.connect(
-            lambda text: self.filter_list(self.floor_list, text)
-        )
-        cl.addWidget(self.floor_search)
-
-        self.floor_list = QListWidget()
-        self.floor_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        cl.addWidget(self.floor_list)
-
-        btn_all_floors = QPushButton("Selecteer Alles")
-        btn_all_floors.clicked.connect(
-            lambda: self.select_all_items(self.floor_search)
-        )
-        cl.addWidget(btn_all_floors)
-
-        # Onderaannemers filter
-        cl.addWidget(QLabel("Onderaannemers:"))
-        self.oa_search = QLineEdit()
-        self.oa_search.setPlaceholderText("Search O.A. values...")
-        self.oa_search.textChanged.connect(
-            lambda text: self.filter_list(self.oa_list, text)
-        )
-        cl.addWidget(self.oa_search)
-
-        self.oa_list = QListWidget()
-        self.oa_list.setSelectionMode(QListWidget.MultiSelection)
-        cl.addWidget(self.oa_list)
-
-        btn_oa_all = QPushButton("Selecteer Alles")
-        btn_oa_all.clicked.connect(
-            lambda: self.select_all_items(self.oa_list)
-        )
-        cl.addWidget(btn_oa_all)
-
-        # Apply
-        self.apply_btn = QPushButton("Apply Filters & Render")
-        self.apply_btn.clicked.connect(self.apply_filters)
-        self.apply_btn.setEnabled(False)
-        cl.addWidget(self.apply_btn)
-
-        # Export
-        self.export_png = QPushButton("Export PNG")
-        self.export_pdf = QPushButton("Export PDF")
-        self.export_html = QPushButton("Export HTML")
-        self.export_png.setEnabled(False)
-        self.export_pdf.setEnabled(False)
-        self.export_html.setEnabled(False)
-        cl.addWidget(self.export_png)
-        cl.addWidget(self.export_pdf)
-        cl.addWidget(self.export_html)
-
-        self.export_png.clicked.connect(lambda: self.export_chart("png"))
-        self.export_pdf.clicked.connect(lambda: self.export_chart("pdf"))
-        self.export_html.clicked.connect(lambda: self.export_chart("html"))
+        self.apply(cl)
+        self.export(cl)
 
         cl.addStretch()
 
@@ -140,6 +201,74 @@ class GanttApp(QMainWindow):
 
         layout.addWidget(splitter)
 
+    def clean(self, df):
+        print(list(df))
+        for k, v in ASANA_MAPPING.items():
+            if k in df.columns:
+                df = df.rename(columns={k: v})
+        # Merge Notes
+        df['Notes'] = df.get('Notes', '').astype(str) + " " + df.get('Opmerkingen', '').astype(str)
+
+        return df
+
+    def populate(self, name):
+        if not name or name not in self.df.columns:
+            return
+
+        options = self.optionsList[name]
+        options.clear()
+
+        values = sorted(self.df[name].dropna().astype(str).unique()) # is dropping empty values smart??
+        for v in values:
+            options.addItem(v)
+
+    def populate_floor_filter(self, df):
+        self.floor_list.clear()
+
+        if FLOOR_COLUMN not in df.columns:
+            return
+
+        # Normalize column
+        col = df[FLOOR_COLUMN].astype(str).str.strip()
+
+        # True floor values (exclude empty / nan)
+        floor_values = sorted(
+            v for v in col.unique()
+            if v and v.lower() not in ("nan", "none")
+        )
+
+        # Add special option for tasks without a floor
+        self.floor_list.addItem("— General —")
+
+        for v in floor_values:
+            self.floor_list.addItem(v)
+
+    def populate_subcontractor_filter(self, df):
+        subcontractor_cols = [c for c in df.columns if SUBCONTRACTOR in c]
+        if subcontractor_cols:
+            oc = subcontractor_cols[0]
+            self.populate_filter(self.subcontractor_list, df, oc)
+
+    def clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            elif item.layout():
+                self.clear_layout(item.layout())
+
+    def build_dynamic_selectors(self, df):
+        # Clear previous selectors
+        self.clear_layout(self.selectors)
+        self.optionsList.clear()
+
+        for title in list(df):
+            print(f"Title: {title}")
+            if title in IGNORE:
+                continue
+            self.add_selector(title, True, True)
+
     def load_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open Asana CSV", os.getcwd(), "CSV (*.csv)")
         if not path:
@@ -150,50 +279,25 @@ class GanttApp(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
             return
 
-        # Normalize Asana columns
-        rename_map = {
-            'Task Id': 'TaskId',
-            'Name': 'Task',
-            'Start Date': 'Start',
-            'Due Date': 'End',
-            'Notes': 'Notes_orig',
-            'Opmerkingen': 'Notes_extra'
-        }
-        for k, v in rename_map.items():
-            if k in df.columns:
-                df = df.rename(columns={k: v})
-
-        # Merge Notes
-        df['Notes'] = df.get('Notes_orig', '').astype(str) + " " + df.get('Notes_extra', '').astype(str)
+        df = self.clean(df)
+        print(list(df))
 
         # Parse dates
-        for c in ['Start', 'End']:
+        for c in ['StartDate', 'EndDate']:
             if c in df.columns:
                 df[c] = pd.to_datetime(df[c], errors='coerce')
 
-        df = df.dropna(subset=['Start', 'End'])
+        df = df.dropna(subset=['StartDate', 'EndDate'])
 
         # Extract filters
         self.populate_filter(self.assignee_list, df, 'Assignee Email')
 
-        # Verdiep detection from custom fields: find columns containing "+"
-        floor_cols = [c for c in df.columns if df[c].astype(str).str.contains("\\+").any()]
-        floors = df.columns["Verdiep"]
-        if floor_cols:
-            vc = floor_cols[0]
-            self.populate_filter(self.floor_list, df, vc)
-        self.floor_col = floor_cols[0] if floor_cols else None
-
-        # OA detection
-        onderaannemer_cols = [c for c in df.columns if "O.A" in c or "OA" in c]
-        if onderaannemer_cols:
-            oc = onderaannemer_cols[0]
-            self.populate_filter(self.oa_list, df, oc)
-        self.onderaannemer_col = onderaannemer_cols[0] if onderaannemer_cols else None
+        self.populate_floor_filter(df)
+        self.populate_subcontractor_filter(df)
 
         self.df = df
         self.apply_btn.setEnabled(True)
-        QMessageBox.information(self, "Loaded", f"Loaded {len(df)} Asana tasks.")
+        QMessageBox.information(self, "Taken gevonden", f"{len(df)} Asana taken geladen.")
 
     def populate_filter(self, widget, df, col):
         if col not in df.columns:
@@ -222,21 +326,34 @@ class GanttApp(QMainWindow):
 
         s = self.start_date.date().toPython()
         e = self.end_date.date().toPython()
-        df = df[(df['Start'] >= pd.Timestamp(s)) & (df['End'] <= pd.Timestamp(e))]
+        df = df[(df['StartDate'] >= pd.Timestamp(s)) & (df['EndDate'] <= pd.Timestamp(e))]
 
         sel_assignee = [i.text() for i in self.assignee_list.selectedItems()]
         if sel_assignee:
             df = df[df['Assignee Email'].astype(str).isin(sel_assignee)]
 
-        if self.floor_col:
-            sel_v = [i.text() for i in self.floor_list.selectedItems()]
-            if sel_v:
-                df = df[df[self.floor_col].astype(str).isin(sel_v)]
+        selected_floor = [i.text() for i in self.floor_list.selectedItems()]
+        if selected_floor:
+            floor_series = df[FLOOR_COLUMN].astype(str).str.strip()
 
-        if self.onderaannemer_col:
-            sel_o = [i.text() for i in self.oa_list.selectedItems()]
-            if sel_o:
-                df = df[df[self.onderaannemer_col].astype(str).isin(sel_o)]
+            mask = pd.Series(False, index=df.index)
+
+            # Normal floor values
+            real_values = [v for v in selected_floor if v != "— General —"]
+            if real_values:
+                mask |= floor_series.isin(real_values)
+
+            # Tasks without floor
+            if "— General —" in selected_floor:
+                mask |= floor_series.isin(["", "nan", "None"]) | floor_series.isna()
+
+            df = df[mask]
+
+        if SUBCONTRACTOR:
+            selectedSC = [i.text() for i in self.subcontractor_list.selectedItems()]
+            print(f"subcontractors: {selectedSC}")
+            if selectedSC:
+                df = df[df[SUBCONTRACTOR].astype(str).isin(selectedSC)]
 
         if df.empty:
             QMessageBox.warning(self, "No Data", "No tasks match filters.")
@@ -251,10 +368,10 @@ class GanttApp(QMainWindow):
     def render_gantt(self, df):
         try:
             fig = px.timeline(
-                df.sort_values('Start'),
-                x_start='Start', x_end='End',
-                y='Task',
-                color='Assignee Email',
+                df.sort_values('StartDate'),
+                x_start='StartDate', x_end='EndDate',
+                y='TaskName',
+                color='O.A. Kristof CU',
                 hover_data=df.columns
             )
             fig.update_yaxes(autorange='reversed')
