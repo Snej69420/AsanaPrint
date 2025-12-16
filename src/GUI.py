@@ -20,23 +20,29 @@ import plotly.express as px
 from PySide6.QtCore import Qt, QDate, QUrl
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QFileDialog, QLabel, QListWidget, QAbstractItemView,
-    QDateEdit, QMessageBox, QSplitter, QLineEdit,
+    QPushButton, QFileDialog, QLabel, QListWidget, QListWidgetItem,
+    QAbstractItemView, QDateEdit, QMessageBox, QSplitter, QLineEdit,
+    QComboBox,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 # Normalize Asana columns
 ASANA_MAPPING = {
-    'Task Id': 'TaskId',
+    'Task ID': 'TaskID',
     'Name': 'TaskName',
     'Start Date': 'StartDate',
     'Due Date': 'EndDate',
     'Created At': 'Created',
     'Completed At': 'Completed',
 }
-IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created", "Completed")
-FLOOR_COLUMN = "Verdiep"
-SUBCONTRACTOR = "O.A."
+IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
+          "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
+          "Blocked By (Dependencies)", "Blocking (Dependencies)", )
+FILTER_PRESETS = {
+    "Standaard": ["Verdiep", "O.A.", "Assignee Email"],
+    "Planning": ["StartDate", "EndDate", "Verdiep"],
+    "Onderaannemers": ["O.A.", "Verdiep"],
+}
 
 class GanttApp(QMainWindow):
     def load_file(self, cl):
@@ -59,11 +65,11 @@ class GanttApp(QMainWindow):
         self.end_date.setDate(QDate.currentDate().addMonths(6))
         cl.addWidget(self.end_date)
 
-    def assigned(self, cl):
-        cl.addWidget(QLabel("Verantwoordelijke:"))
-        self.assignee_list = QListWidget()
-        self.assignee_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        cl.addWidget(self.assignee_list)
+    def add_selector_item(self, name):
+        item = QListWidgetItem(name)
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(Qt.Unchecked)
+        self.filter_selector.addItem(item)
 
     def add_search(self, layout, name):
         search_field = QLineEdit()
@@ -80,64 +86,54 @@ class GanttApp(QMainWindow):
         )
         layout.addWidget(select_all_button)
 
-
     def add_selector(self, name:str, search:bool = False, select_all:bool = False):
-        self.selectors.addWidget(QLabel(f"{name}:"))
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(QLabel(f"{name}:"))
         search_select = QHBoxLayout()
         if search:
             self.add_search(search_select, name)
 
         if select_all:
             self.add_select_all(search_select, name)
-        self.selectors.addLayout(search_select)
+        layout.addLayout(search_select)
 
         self.optionsList[name] = QListWidget()
         self.optionsList[name].setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.selectors.addWidget(self.optionsList[name])
+        layout.addWidget(self.optionsList[name])
 
         self.populate(name)
 
-    def floor_selector(self, cl):
-        cl.addWidget(QLabel("Verdieping:"))
-        search_select = QHBoxLayout()
-        floor_search = QLineEdit()
-        floor_search.setPlaceholderText("Zoek een verdieping")
-        floor_search.textChanged.connect(
-            lambda text: self.filter_list(self.floor_list, text)
-        )
-        search_select.addWidget(floor_search)
+        self.selector_widgets[name] = container
+        container.setVisible(False)
+        self.selectors.addWidget(container)
 
-        btn_all_floors = QPushButton("Selecteer Alles")
-        btn_all_floors.clicked.connect(
-            lambda: self.select_all_items(self.floor_list)
-        )
-        search_select.addWidget(btn_all_floors)
-        cl.addLayout(search_select)
+    def apply_preset(self, preset_name):
+        if preset_name not in FILTER_PRESETS:
+            return
 
-        self.floor_list = QListWidget()
-        self.floor_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        cl.addWidget(self.floor_list)
+        wanted = set(FILTER_PRESETS[preset_name])
 
-    def subcontractor_selector(self, cl):
-        cl.addWidget(QLabel("Onderaannemers:"))
+        for i in range(self.filter_selector.count()):
+            item = self.filter_selector.item(i)
+            item.setCheckState(
+                Qt.Checked if item.text() in wanted else Qt.Unchecked
+            )
 
-        search_select = QHBoxLayout()
-        self.oa_search = QLineEdit()
-        self.oa_search.setPlaceholderText("Zoek een onderaannemer")
-        self.oa_search.textChanged.connect(
-            lambda text: self.filter_list(self.subcontractor_list, text)
-        )
-        search_select.addWidget(self.oa_search)
-        btn_oa_all = QPushButton("Selecteer Alles")
-        btn_oa_all.clicked.connect(
-            lambda: self.select_all_items(self.subcontractor_list)
-        )
-        search_select.addWidget(btn_oa_all)
-        cl.addLayout(search_select)
+    def update_active_filters(self):
+        for i in range(self.filter_selector.count()):
+            item = self.filter_selector.item(i)
+            name = item.text()
+            print(f"Name: {name}")
 
-        self.subcontractor_list = QListWidget()
-        self.subcontractor_list.setSelectionMode(QListWidget.MultiSelection)
-        cl.addWidget(self.subcontractor_list)
+            if name in self.selector_widgets.keys():
+                print(f"Name: {name}")
+                print(f"Checked: {item.checkState()}")
+                self.selector_widgets[name].setVisible(
+                    item.checkState() == Qt.Checked
+                )
 
     def apply(self, cl):
         self.apply_btn = QPushButton("Pas filters toe en creeer een gantt chart")
@@ -182,8 +178,22 @@ class GanttApp(QMainWindow):
         self.date_selector(cl)
 
         # selectors
+        self.filter_selector = QListWidget()
+        self.filter_selector.setSelectionMode(QAbstractItemView.NoSelection)
+        self.filter_selector.itemChanged.connect(self.update_active_filters)
+        cl.addWidget(QLabel("Beschikbare filters:"))
+        cl.addWidget(self.filter_selector)
+
+        # presets
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItem("— Selecteer preset —")
+        self.preset_combo.addItems(FILTER_PRESETS.keys())
+        self.preset_combo.currentTextChanged.connect(self.apply_preset)
+        cl.addWidget(self.preset_combo)
+
         # PLACEHOLDER for dynamic selectors
         self.selectors = QVBoxLayout()
+        self.selector_widgets = {}
         cl.addLayout(self.selectors)
 
         self.apply(cl)
@@ -202,12 +212,12 @@ class GanttApp(QMainWindow):
         layout.addWidget(splitter)
 
     def clean(self, df):
-        print(list(df))
         for k, v in ASANA_MAPPING.items():
             if k in df.columns:
                 df = df.rename(columns={k: v})
         # Merge Notes
         df['Notes'] = df.get('Notes', '').astype(str) + " " + df.get('Opmerkingen', '').astype(str)
+        df.drop(columns=['Notes', 'Opmerkingen'], inplace=True)
 
         return df
 
@@ -221,33 +231,6 @@ class GanttApp(QMainWindow):
         values = sorted(self.df[name].dropna().astype(str).unique()) # is dropping empty values smart??
         for v in values:
             options.addItem(v)
-
-    def populate_floor_filter(self, df):
-        self.floor_list.clear()
-
-        if FLOOR_COLUMN not in df.columns:
-            return
-
-        # Normalize column
-        col = df[FLOOR_COLUMN].astype(str).str.strip()
-
-        # True floor values (exclude empty / nan)
-        floor_values = sorted(
-            v for v in col.unique()
-            if v and v.lower() not in ("nan", "none")
-        )
-
-        # Add special option for tasks without a floor
-        self.floor_list.addItem("— General —")
-
-        for v in floor_values:
-            self.floor_list.addItem(v)
-
-    def populate_subcontractor_filter(self, df):
-        subcontractor_cols = [c for c in df.columns if SUBCONTRACTOR in c]
-        if subcontractor_cols:
-            oc = subcontractor_cols[0]
-            self.populate_filter(self.subcontractor_list, df, oc)
 
     def clear_layout(self, layout):
         while layout.count():
@@ -264,9 +247,9 @@ class GanttApp(QMainWindow):
         self.optionsList.clear()
 
         for title in list(df):
-            print(f"Title: {title}")
             if title in IGNORE:
                 continue
+            self.add_selector_item(title)
             self.add_selector(title, True, True)
 
     def load_csv(self):
@@ -280,7 +263,6 @@ class GanttApp(QMainWindow):
             return
 
         df = self.clean(df)
-        print(list(df))
 
         # Parse dates
         for c in ['StartDate', 'EndDate']:
@@ -288,14 +270,16 @@ class GanttApp(QMainWindow):
                 df[c] = pd.to_datetime(df[c], errors='coerce')
 
         df = df.dropna(subset=['StartDate', 'EndDate'])
+        self.df = df
+
+        self.build_dynamic_selectors(df)
 
         # Extract filters
-        self.populate_filter(self.assignee_list, df, 'Assignee Email')
+        # self.populate_filter(self.assignee_list, df, 'Assignee Email')
+        #
+        # self.populate_floor_filter(df)
+        # self.populate_subcontractor_filter(df)
 
-        self.populate_floor_filter(df)
-        self.populate_subcontractor_filter(df)
-
-        self.df = df
         self.apply_btn.setEnabled(True)
         QMessageBox.information(self, "Taken gevonden", f"{len(df)} Asana taken geladen.")
 
@@ -371,7 +355,8 @@ class GanttApp(QMainWindow):
                 df.sort_values('StartDate'),
                 x_start='StartDate', x_end='EndDate',
                 y='TaskName',
-                color='O.A. Kristof CU',
+                color='Subcontractor',
+                labels=dict(TaskName="Taak", Subcontractor="Onderaannemer"),
                 hover_data=df.columns
             )
             fig.update_yaxes(autorange='reversed')
