@@ -10,9 +10,9 @@ Single-file prototype. For production, split into modules.
 
 import sys
 import os
+import json
 from math import floor
 from pathlib import Path
-import tempfile
 
 import pandas as pd
 import plotly.express as px
@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QFileDialog, QLabel, QListWidget, QListWidgetItem,
     QAbstractItemView, QDateEdit, QMessageBox, QSplitter, QLineEdit,
-    QComboBox,
+    QComboBox, QInputDialog, QToolButton
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -38,11 +38,8 @@ ASANA_MAPPING = {
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
           "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
           "Blocked By (Dependencies)", "Blocking (Dependencies)", )
-FILTER_PRESETS = {
-    "Standaard": ["Verdiep", "O.A.", "Assignee Email"],
-    "Planning": ["StartDate", "EndDate", "Verdiep"],
-    "Onderaannemers": ["O.A.", "Verdiep"],
-}
+
+PRESET_FILE = Path.home() / "presets.json"
 
 class GanttApp(QMainWindow):
     def load_file(self, cl):
@@ -110,17 +107,64 @@ class GanttApp(QMainWindow):
         container.setVisible(False)
         self.selectors.addWidget(container)
 
-    def apply_preset(self, preset_name):
-        if preset_name not in FILTER_PRESETS:
+    def apply_preset(self, name):
+        preset = self.presets.get(name)
+        if not preset:
             return
 
-        wanted = set(FILTER_PRESETS[preset_name])
+        # Show/hide filters
+        for k, w in self.selector_widgets.items():
+            w.setVisible(k in preset["filters"])
 
-        for i in range(self.filter_selector.count()):
-            item = self.filter_selector.item(i)
-            item.setCheckState(
-                Qt.Checked if item.text() in wanted else Qt.Unchecked
+    def load_presets(self):
+        if PRESET_FILE.exists():
+            with open(PRESET_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+
+    def save_presets(self):
+        with open(PRESET_FILE, "w", encoding="utf-8") as f:
+            json.dump(self.presets, f)
+
+    def save_current_as_preset(self, name):
+        filters = [k for k, w in self.selector_widgets.items() if w.isVisible()]
+        if not filters:
+            QMessageBox.warning(
+                self, "Preset leeg",
+                "Geen actieve filters om op te slaan."
             )
+            return
+
+        preset = {"filters": filters}
+
+        self.presets[name] = preset
+        self.save_presets()
+        self.refresh_preset_combo()
+        self.preset_combo.setCurrentText(name)
+
+    def prompt_save_preset(self):
+        name, ok = QInputDialog.getText(
+            self, "Preset opslaan", "Naam van preset:"
+        )
+        if ok and name:
+            self.save_current_as_preset(name)
+
+    def refresh_preset_combo(self):
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.clear()
+        self.preset_combo.addItem("— Kies preset —")
+
+        for name in sorted(self.presets.keys()):
+            self.preset_combo.addItem(name)
+
+        self.preset_combo.blockSignals(False)
+
+    def toggle_filter_selector(self):
+        open = self.toggle_filters_btn.isChecked()
+        self.filter_selector_widget.setVisible(open)
+        self.toggle_filters_btn.setArrowType(
+            Qt.DownArrow if open else Qt.RightArrow
+        )
 
     def update_active_filters(self):
         for i in range(self.filter_selector.count()):
@@ -185,11 +229,20 @@ class GanttApp(QMainWindow):
         cl.addWidget(self.filter_selector)
 
         # presets
+        self.presets = self.load_presets()
+        preset_row = QHBoxLayout()
         self.preset_combo = QComboBox()
-        self.preset_combo.addItem("— Selecteer preset —")
-        self.preset_combo.addItems(FILTER_PRESETS.keys())
+        self.preset_combo.addItem("— Kies preset —")
         self.preset_combo.currentTextChanged.connect(self.apply_preset)
-        cl.addWidget(self.preset_combo)
+
+        btn_save = QPushButton("Opslaan")
+        btn_save.clicked.connect(self.prompt_save_preset)
+
+        preset_row.addWidget(self.preset_combo)
+        preset_row.addWidget(btn_save)
+        self.refresh_preset_combo()
+
+        cl.addLayout(preset_row)
 
         # PLACEHOLDER for dynamic selectors
         self.selectors = QVBoxLayout()
@@ -282,6 +335,9 @@ class GanttApp(QMainWindow):
 
         self.apply_btn.setEnabled(True)
         QMessageBox.information(self, "Taken gevonden", f"{len(df)} Asana taken geladen.")
+        current = self.preset_combo.currentText()
+        if current in self.presets:
+            self.apply_preset(current)
 
     def populate_filter(self, widget, df, col):
         if col not in df.columns:
