@@ -39,8 +39,13 @@ IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
           "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
           "Blocked By (Dependencies)", "Blocking (Dependencies)", )
 
-PRESET_FILE = Path.home() / "presets.json"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+PRESET_FILE = PROJECT_DIR / "presets.json"
 
+
+# TODO separate the class into subclasses (clean up)
+# TODO add fixed scales week/month
+# TODO add a selector to determine which property will determine the colour in the gantt chart
 class GanttApp(QMainWindow):
     def load_file(self, cl):
         btn = QPushButton("Selecteer een Asana CSV")
