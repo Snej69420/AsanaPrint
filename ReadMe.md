@@ -8,6 +8,7 @@ This repository contains a single-file prototype `main.py` that:
 
 ## Future Work:
 - Config enable setting default file paths for saving and loading
+  - 
 
 ## Quick start
 

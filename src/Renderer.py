@@ -38,11 +38,11 @@ class GanttRenderer:
             tickformat="%d-%b\n%Y",
             showgrid=True
         )
-
         fig.update_layout(
             height=650,
             margin=dict(l=10, r=10, t=30, b=10),
             xaxis_title="Datum",
+            xaxis={'side': 'top'},
             yaxis_title="Taken"
         )
 
