@@ -39,6 +39,7 @@ IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
           "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
           "Blocked By (Dependencies)", "Blocking (Dependencies)", )
 
+GENERAL_LABEL = "— General —"
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 PRESET_FILE = PROJECT_DIR / "presets.json"
 
@@ -367,42 +368,63 @@ class GanttApp(QMainWindow):
 
     # ------------------ Apply filters ------------------
     def apply_filters(self):
+        if self.df is None:
+            return
+
         df = self.df.copy()
 
+        # ---------------- Date filter (still special, global) ----------------
         s = self.start_date.date().toPython()
         e = self.end_date.date().toPython()
-        df = df[(df['StartDate'] >= pd.Timestamp(s)) & (df['EndDate'] <= pd.Timestamp(e))]
 
-        sel_assignee = [i.text() for i in self.assignee_list.selectedItems()]
-        if sel_assignee:
-            df = df[df['Assignee Email'].astype(str).isin(sel_assignee)]
+        df = df[
+            (df["StartDate"] >= pd.Timestamp(s)) &
+            (df["EndDate"] <= pd.Timestamp(e))
+            ]
 
-        selected_floor = [i.text() for i in self.floor_list.selectedItems()]
-        if selected_floor:
-            floor_series = df[FLOOR_COLUMN].astype(str).str.strip()
+        # ---------------- Dynamic selectors ----------------
+        for filter_name, list_widget in self.optionsList.items():
 
-            mask = pd.Series(False, index=df.index)
+            # Skip hidden selectors
+            widget = self.selector_widgets.get(filter_name)
+            if widget and not widget.isVisible():
+                continue
+            if widget.isVisible():
+                print(f"{filter_name} filter is visible.")
 
-            # Normal floor values
-            real_values = [v for v in selected_floor if v != "— General —"]
-            if real_values:
-                mask |= floor_series.isin(real_values)
+            selected_values = [i.text() for i in list_widget.selectedItems()]
+            if not selected_values:
+                continue
 
-            # Tasks without floor
-            if "— General —" in selected_floor:
-                mask |= floor_series.isin(["", "nan", "None"]) | floor_series.isna()
+            # Resolve dataframe column
+            column = ASANA_MAPPING.get(filter_name, filter_name)
+            if column not in df.columns:
+                continue
 
-            df = df[mask]
+            series = df[column].astype(str).str.strip()
 
-        if SUBCONTRACTOR:
-            selectedSC = [i.text() for i in self.subcontractor_list.selectedItems()]
-            print(f"subcontractors: {selectedSC}")
-            if selectedSC:
-                df = df[df[SUBCONTRACTOR].astype(str).isin(selectedSC)]
+            # ---- Special case: Verdiep / Floor ----
+            if filter_name == "Verdiep":
+                mask = pd.Series(False, index=df.index)
 
+                real_values = [v for v in selected_values if v != GENERAL_LABEL]
+                if real_values:
+                    mask |= series.isin(real_values)
+
+                if GENERAL_LABEL in selected_values:
+                    mask |= series.isna() | series.isin(["", "nan", "None"])
+
+                df = df[mask]
+
+            # ---- Default categorical filter ----
+            else:
+                df = df[series.isin(selected_values)]
+
+        # ---------------- Result ----------------
         if df.empty:
-            QMessageBox.warning(self, "No Data", "No tasks match filters.")
+            QMessageBox.warning(self, "Geen data", "Geen taken voldoen aan de filters.")
             return
+        print(df.keys())
 
         self.render_gantt(df)
         self.export_png.setEnabled(True)
@@ -416,7 +438,7 @@ class GanttApp(QMainWindow):
                 df.sort_values('StartDate'),
                 x_start='StartDate', x_end='EndDate',
                 y='TaskName',
-                color='Subcontractor',
+                color='O.A. Kristof CU',
                 labels=dict(TaskName="Taak", Subcontractor="Onderaannemer"),
                 hover_data=df.columns
             )
