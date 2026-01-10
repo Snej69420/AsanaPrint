@@ -2,7 +2,8 @@ import pandas as pd
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListWidget, QAbstractItemView, QListWidgetItem,
-    QDateEdit, QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup
+    QDateEdit, QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup, QScrollArea,
+    QFrame, QSizePolicy
 )
 
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
@@ -26,14 +27,26 @@ class FilterPanel(QWidget):
         self.layout.addWidget(QLabel("Beschikbare filters:"))
 
         self.filter_selector = QListWidget()
+        self.filter_selector.setFixedHeight(180)
         self.filter_selector.itemChanged.connect(self.update_active_filters)
         self.layout.addWidget(self.filter_selector)
 
-        # ---- Container for actual filter widgets ----
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        # This prevents the scroll area from disappearing or growing too small
+        # self.scroll.setMinimumHeight(300)
+        self.scroll.setMinimumHeight(180)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.StyledPanel)
+        self.scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # This widget holds the actual filter lists
         self.filters_container = QWidget()
         self.filters_layout = QVBoxLayout(self.filters_container)
+        self.filters_layout.setAlignment(Qt.AlignTop)  # Keep selectors at the top
 
-        self.layout.addWidget(self.filters_container)
+        self.scroll.setWidget(self.filters_container)
+        self.layout.addWidget(self.scroll)
 
     def _time_filters(self):
         start_row = QHBoxLayout()
@@ -57,8 +70,8 @@ class FilterPanel(QWidget):
         scale_row = QHBoxLayout()
         scale_row.addWidget(QLabel("Tijdschaal:"))
         self.scale_combo = QComboBox()
-        # These keys will correspond to Plotly's 'dtick' or 'tickformat' logic
         self.scale_combo.addItems(["Dagen", "Weken", "Maanden", "Kwartalen", "Jaren"])
+        self.scale_combo.setCurrentText("Maanden")
         scale_row.addWidget(self.scale_combo)
         self.layout.addLayout(scale_row)
 
@@ -82,6 +95,11 @@ class FilterPanel(QWidget):
         for col in df.columns:
             if col in IGNORE:
                 continue
+
+            unique_count = df[col].nunique()
+            if unique_count <= 1:
+                continue
+
             item = QListWidgetItem(col)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
             item.setCheckState(Qt.Unchecked)
@@ -105,9 +123,10 @@ class FilterPanel(QWidget):
 
     def add_selector(self, column: str, df: pd.DataFrame):
         container = QWidget()
+        container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         v = QVBoxLayout(container)
 
-        # Header with Radio Button for coloring
+        # Header
         header_layout = QHBoxLayout()
         v.addLayout(header_layout)
 
@@ -119,19 +138,23 @@ class FilterPanel(QWidget):
         header_layout.addStretch()
         header_layout.addWidget(radio)
 
+        # List
         lw = QListWidget()
         lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        lw.setSizeAdjustPolicy(QAbstractItemView.AdjustToContents)
+        lw.setMaximumHeight(180)
 
         values = sorted(df[column].dropna().astype(str).unique())
         for value in values:
             lw.addItem(value)
+
 
         self.options[column] = lw
         self.selector_widgets[column] = container
 
         v.addWidget(lw)
         container.setVisible(False)
-        self.layout.addWidget(container)
+        self.filters_layout.addWidget(container)
 
     def get_color_column(self) -> str:
         """Returns the name of the column currently selected for coloring."""
@@ -166,14 +189,21 @@ class FilterPanel(QWidget):
         return df
 
     def get_scale_config(self):
-        mapping = {
-            "Dagen": DAY_IN_MS,
-            "Weken": DAY_IN_MS*7,
-            "Maanden": "M1",
-            "Kwartaal": "M3",
-            "Jaren": "M12"
-        }
-        return mapping.get(self.scale_combo.currentText(), "M1")
+        """
+        Returns a tuple of (dtick, tickformat)
+        """
+        text = self.scale_combo.currentText()
+        if text == "Dagen":
+            return "D1", "%d-%b"
+        if text == "Weken":
+            return 7*DAY_IN_MS, "%d-%b"
+        if text == "Maanden":
+            return "M1", "%b\n%Y"
+        if text == "Kwartalen":
+            return "M3", "Q%q: %b\n%Y"
+        if text == "Jaren":
+            return "M12", "%Y"
+        return "M1", "%b\n%Y"
 
     def clear_filters(self):
         self.filter_selector.clear()

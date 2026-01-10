@@ -53,9 +53,7 @@ class GanttApp(QMainWindow):
         left_layout.addWidget(self.presets)
         left_layout.addWidget(create_hline())
 
-
-        left_layout.addWidget(self.filters)
-        left_layout.addStretch(1)
+        left_layout.addWidget(self.filters, 1)
 
         self.apply_btn = QPushButton("Pas filters toe en creeer een gantt chart")
         self.apply_btn.clicked.connect(self.apply)

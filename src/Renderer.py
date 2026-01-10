@@ -10,11 +10,13 @@ class GanttRenderer:
         self.current_fig = None
         self.task_count = 0
 
-    def render(self, df: pd.DataFrame, time_scale: str = "M1", color_column: str = None):
+    def render(self, df: pd.DataFrame, timescale_config: tuple, color_column: str = None):
         """
-        Renders the Gantt chart and applies the selected time scale.
+        Renders the Gantt chart and applies the selected timescale.
         time_scale: Plotly dtick format (e.g., 'D1', 'D7', 'M1')
         """
+        timescale, time_format = timescale_config
+
         if df.empty:
             return None
         self.current_df = df
@@ -33,9 +35,11 @@ class GanttRenderer:
         fig.update_yaxes(autorange="reversed")
         fig.update_xaxes(
             type='date',
-            dtick=time_scale,
+            dtick=timescale,
+            tickformat=time_format,
+            tickson="boundaries",
+            ticklabelmode="period",
             tickmode='linear',
-            tickformat="%d-%b\n%Y",
             showgrid=True
         )
         fig.update_layout(
