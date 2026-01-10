@@ -107,8 +107,9 @@ class GanttApp(QMainWindow):
 
         if df.empty:
             return
+        color_col = self.filters.get_color_column()
 
-        fig = self.renderer.render(df, scale)
+        fig = self.renderer.render(df, scale, color_col)
         self.web.setHtml(fig.to_html(include_plotlyjs="cdn"))
 
     def handle_save_preset(self, name):

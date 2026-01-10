@@ -10,7 +10,7 @@ class GanttRenderer:
         self.current_fig = None
         self.task_count = 0
 
-    def render(self, df: pd.DataFrame, time_scale: str = "M1"):
+    def render(self, df: pd.DataFrame, time_scale: str = "M1", color_column: str = None):
         """
         Renders the Gantt chart and applies the selected time scale.
         time_scale: Plotly dtick format (e.g., 'D1', 'D7', 'M1')
@@ -25,7 +25,7 @@ class GanttRenderer:
             x_start="StartDate",
             x_end="EndDate",
             y="TaskName",
-            color="O.A. Kristof CU",  # Ensure this column exists in your CSV
+            color=color_column,  # Ensure this column exists in your CSV
             hover_data=df.columns,
             labels=dict(TaskName="Taak")
         )

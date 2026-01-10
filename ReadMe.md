@@ -45,8 +45,3 @@ pyinstaller --onefile --windowed main.py
 
 Notes when packaging GUI + Qt WebEngine:
 - PySide6 Qt WebEngine needs additional Qt resources; you may need to include the QtWebEngineProcess and library files using `--add-data` options.
-## Troubleshooting
-
-- If export to PNG/PDF fails, ensure `kaleido` is installed (`uv pip install kaleido`).
-- If the QWebEngineView fails to initialize, ensure PySide6 was installed with webengine support and your platform has the necessary Qt libraries.
-

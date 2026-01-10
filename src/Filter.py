@@ -2,7 +2,7 @@ import pandas as pd
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListWidget, QAbstractItemView, QListWidgetItem,
-    QDateEdit, QHBoxLayout, QComboBox, QMessageBox
+    QDateEdit, QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup
 )
 
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
@@ -16,6 +16,7 @@ class FilterPanel(QWidget):
         super().__init__()
         self.options = {}
         self.selector_widgets = {}
+        self.color_groups = QButtonGroup(self)
         self.layout = QVBoxLayout(self)
 
         # Time Controls
@@ -106,7 +107,18 @@ class FilterPanel(QWidget):
         container = QWidget()
         v = QVBoxLayout(container)
 
-        v.addWidget(QLabel(column))
+        # Header with Radio Button for coloring
+        header_layout = QHBoxLayout()
+        v.addLayout(header_layout)
+
+        radio = QRadioButton("Gebruik voor kleur")
+        radio.setProperty("column_name", column)  # Store column name in widget
+        self.color_groups.addButton(radio)
+
+        header_layout.addWidget(QLabel(f"<b>{column}</b>"))
+        header_layout.addStretch()
+        header_layout.addWidget(radio)
+
         lw = QListWidget()
         lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
@@ -120,6 +132,13 @@ class FilterPanel(QWidget):
         v.addWidget(lw)
         container.setVisible(False)
         self.layout.addWidget(container)
+
+    def get_color_column(self) -> str:
+        """Returns the name of the column currently selected for coloring."""
+        checked_button = self.color_groups.checkedButton()
+        if checked_button:
+            return checked_button.property("column_name")
+        return None
 
     def apply_filters(self, df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:
