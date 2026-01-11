@@ -24,7 +24,7 @@ class GanttApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Asana Gantt Viewer")
-        self.resize(1280, 720)
+        self.resize(1920, 1080)
 
         self.data = DataModel()
         self.filters = FilterPanel()

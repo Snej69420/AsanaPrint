@@ -144,6 +144,8 @@ class FilterPanel(QWidget):
         if df.empty:
             return df
 
+        df = df.copy()
+
         start_ts = pd.Timestamp(self.start_date.date().toPython())
         end_ts = pd.Timestamp(self.end_date.date().toPython())
 

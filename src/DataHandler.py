@@ -23,7 +23,7 @@ class DataModel:
         for k, v in ASANA_MAPPING.items():
             if k in df.columns:
                 df = df.rename(columns={k: v})
-
+        df = df.copy()
         for c in ("StartDate", "EndDate"):
             if c in df.columns:
                 df[c] = pd.to_datetime(df[c], errors="coerce")

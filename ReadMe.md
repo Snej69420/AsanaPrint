@@ -39,8 +39,11 @@ uv run Application.py
 We recommend using PyInstaller. A simple command:
 
 ```bash
-uv pip install pyinstaller
-pyinstaller --onefile --windowed main.py
+uv run pyinstaller --noconfirm --onefile --windowed --name "AsanaGanttExporter" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
+```
+
+```bash
+uv run -m nuitka --output-filename="Asana Gantt Exporter" --windows-icon-from-ico=".\logos\Asana Gantt Exporter 3-2.ico" --mingw64 --standalone --onefile --enable-plugin=pyside6 --include-package=plotly --include-package=_plotly_utils --include-package-data=plotly --nofollow-import-to=pytest --windows-console-mode=disable .\src\Application.py
 ```
 
 Notes when packaging GUI + Qt WebEngine:
