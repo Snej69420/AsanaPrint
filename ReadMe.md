@@ -43,7 +43,7 @@ uv run pyinstaller --noconfirm --onefile --windowed --name "AsanaGanttExporter" 
 ```
 
 ```bash
-uv run -m nuitka --output-filename="Asana Gantt Exporter" --windows-icon-from-ico=".\logos\Asana Gantt Exporter 3-2.ico" --mingw64 --standalone --onefile --enable-plugin=pyside6 --include-package=plotly --include-package=_plotly_utils --include-package-data=plotly --nofollow-import-to=pytest --windows-console-mode=disable .\src\Application.py
+uv run -m nuitka --output-filename="Asana Gantt Exporter" --windows-icon-from-ico=".\logos\Asana Gantt Exporter 3-2.ico" --mingw64 --standalone --onefile --enable-plugin=pyside6 --include-package=plotly --include-package=_plotly_utils --include-package-data=plotly --include-package=kaleido --include-package-data=kaleido --nofollow-import-to=pytest --windows-console-mode=disable .\src\Application.py
 ```
 
 Notes when packaging GUI + Qt WebEngine:
