@@ -38,7 +38,7 @@ class GanttRenderer:
             dtick=timescale,
             tickformat=time_format,
             tickson="boundaries",
-            ticklabelmode="period",
+            # ticklabelmode="period",
             tickmode='linear',
             showgrid=True
         )

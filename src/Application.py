@@ -11,11 +11,8 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from DataHandler import DataModel
 from Filter import FilterPanel
-from Preset import PresetManager
 from Renderer import GanttRenderer
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PRESET_FILE = PROJECT_DIR / "presets.json"
 
 def create_hline():
     line = QFrame()
@@ -31,7 +28,6 @@ class GanttApp(QMainWindow):
 
         self.data = DataModel()
         self.filters = FilterPanel()
-        self.presets = PresetManager(PRESET_FILE)
         self.renderer = GanttRenderer()
 
         # -------- UI --------
@@ -50,7 +46,6 @@ class GanttApp(QMainWindow):
         load_btn.setStyleSheet("font-weight: bold;")
 
         left_layout.addWidget(load_btn)
-        left_layout.addWidget(self.presets)
         left_layout.addWidget(create_hline())
 
         left_layout.addWidget(self.filters, 1)
@@ -72,11 +67,6 @@ class GanttApp(QMainWindow):
             export_layout.addWidget(btn)
 
         left_layout.addLayout(export_layout)
-
-        # --- Connections ---
-
-        self.presets.preset_requested.connect(self.filters.set_active_filters)
-        self.presets.save_requested.connect(self.handle_save_preset)
 
         # ---- Right panel ----
         self.web = QWebEngineView()
@@ -110,19 +100,9 @@ class GanttApp(QMainWindow):
         fig = self.renderer.render(df, scale, color_col)
         self.web.setHtml(fig.to_html(include_plotlyjs="cdn"))
 
-    def handle_save_preset(self, name):
-        # Get currently checked filters from the FilterPanel
-        active_filters = self.filters.get_active_filter_names()
-        if not active_filters:
-            QMessageBox.warning(self, "Leeg", "Geen actieve filters om op te slaan.")
-            return
-        self.presets.add_and_save(name, active_filters)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-
-    # On some platforms, QWebEngine requires this import side-effect
-    # If you get errors related to Qt WebEngine, ensure PySide6[webengine] is installed.
 
     window = GanttApp()
     window.show()
