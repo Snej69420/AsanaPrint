@@ -2,7 +2,7 @@ import sys
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtWidgets import (QApplication, QMainWindow, QFileDialog,
                                QPushButton, QSplitter, QHBoxLayout, QVBoxLayout,
                                QWidget, QMessageBox, QLabel, QFrame, QSpacerItem, QSizePolicy
@@ -79,7 +79,13 @@ class GanttApp(QMainWindow):
         main_layout.addWidget(splitter)
 
     def load_csv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "CSV", "", "*.csv")
+        downloads_path = QStandardPaths.writableLocation(QStandardPaths.DownloadLocation)
+
+        if not downloads_path:
+            downloads_path = QStandardPaths.writableLocation(QStandardPaths.HomeLocation)
+
+        path, _ = QFileDialog.getOpenFileName(self, "CSV", downloads_path, "*.csv")
+
         if not path:
             return
 

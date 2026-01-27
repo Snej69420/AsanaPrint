@@ -32,7 +32,11 @@ uv run Application.py
 
 PyInstaller:
 ```bash
-uv run pyinstaller --noconfirm --onefile --windowed --name "AsanaGanttExporter" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
+uv run pyinstaller --noconfirm --optimize 2 --onedir --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
+```
+
+```bash
+uv run pyinstaller --noconfirm --optimize 2 --onefile --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
 ```
 Nuitka
 ```bash

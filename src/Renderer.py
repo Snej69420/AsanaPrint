@@ -1,6 +1,8 @@
 import math
 import pandas as pd
 import plotly.express as px
+import os
+from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 
@@ -84,10 +86,17 @@ class GanttRenderer:
             'png': "PNG (*.png)"
         }
 
+        downloads_path = QStandardPaths.writableLocation(QStandardPaths.DownloadLocation)
+        if not downloads_path:
+            downloads_path = QStandardPaths.writableLocation(QStandardPaths.HomeLocation)
+
+        default_filename = f"gantt_export.{fmt}"
+        default_path = os.path.join(downloads_path, default_filename)
+
         path, _ = QFileDialog.getSaveFileName(
             parent_widget,
             "Export Gantt Chart",
-            f"gantt_export.{fmt}",
+            default_path,
             filters.get(fmt, "All Files (*)")
         )
 
