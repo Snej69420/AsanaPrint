@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
           "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
           "Blocked By (Dependencies)", "Blocking (Dependencies)", )
-DAY_IN_MS = 86400000
 
 
 class CollapsibleFilter(QWidget):
@@ -180,7 +179,7 @@ class FilterPanel(QWidget):
         if text == "Dagen":
             return "D1", "%d-%b"
         if text == "Weken":
-            return 7*DAY_IN_MS, "%d-%b"
+            return "D7", "%d-%b"
         if text == "Maanden":
             return "M1", "%b\n%Y"
         if text == "Kwartalen":
