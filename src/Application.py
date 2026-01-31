@@ -35,48 +35,76 @@ class GanttApp(QMainWindow):
         self.setCentralWidget(root)
 
         main_layout = QHBoxLayout(root)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # Clean edges
+        main_layout.setSpacing(0)
 
         # ---- Left panel ----
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
+        self.control_panel = QWidget()
+        control_panel_layout = QHBoxLayout(self.control_panel)
+        control_panel_layout.setContentsMargins(0, 0, 0, 0)
+        control_panel_layout.setSpacing(0)
+
+        self.content = QWidget()
+        content_layout = QVBoxLayout(self.content)
 
         load_btn = QPushButton("Laad CSV")
         load_btn.clicked.connect(self.load_csv)
         load_btn.setMinimumHeight(40)
         load_btn.setStyleSheet("font-weight: bold;")
 
-        left_layout.addWidget(load_btn)
-        left_layout.addWidget(create_hline())
+        content_layout.addWidget(load_btn)
+        content_layout.addWidget(create_hline())
 
-        left_layout.addWidget(self.filters, 1)
+        content_layout.addWidget(self.filters, 1)
 
         self.apply_btn = QPushButton("Pas filters toe en creeer een gantt chart")
         self.apply_btn.clicked.connect(self.apply)
         self.apply_btn.setMinimumHeight(40)
         self.apply_btn.setStyleSheet("font-weight: bold;")
         self.apply_btn.setEnabled(False)
-        left_layout.addWidget(self.apply_btn)
+        content_layout.addWidget(self.apply_btn)
 
-        left_layout.addWidget(create_hline())
+        content_layout.addWidget(create_hline())
 
-        left_layout.addWidget(QLabel("Exporteer de Gantt Chart naar:"))
+        content_layout.addWidget(QLabel("Exporteer de Gantt Chart naar:"))
         export_layout = QHBoxLayout()
         for fmt in ['png', 'pdf', 'html']:
             btn = QPushButton(fmt.upper())
             btn.clicked.connect(lambda checked=False, f=fmt: self.renderer.export(self, f))
             export_layout.addWidget(btn)
 
-        left_layout.addLayout(export_layout)
+        content_layout.addLayout(export_layout)
+
+        # --- Toggle Button ---
+        self.toggle_btn = QPushButton("<")
+        self.toggle_btn.setFixedWidth(15)  # Thin strip
+        self.toggle_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)  # Full height
+        self.toggle_btn.setToolTip("Verberg/Toon Filters")
+        self.toggle_btn.clicked.connect(self.toggle_sidebar)
+
+        control_panel_layout.addWidget(self.content)
+        control_panel_layout.addWidget(self.toggle_btn)
 
         # ---- Right panel ----
         self.web = QWebEngineView()
 
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(left)
-        splitter.addWidget(self.web)
-        splitter.setStretchFactor(1, 3)
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.control_panel)
+        self.splitter.addWidget(self.web)
+        self.splitter.setStretchFactor(1, 3)
+        self.saved_splitter_state = self.splitter.saveState()
 
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(self.splitter)
+
+    def toggle_sidebar(self):
+        if self.content.isVisible():
+            self.content.hide()
+            self.toggle_btn.setText(">")
+            self.splitter.setSizes([15, 10000])
+        else:
+            self.content.show()
+            self.toggle_btn.setText("<")
+            self.splitter.restoreState(self.saved_splitter_state)
 
     def load_csv(self):
         downloads_path = QStandardPaths.writableLocation(QStandardPaths.DownloadLocation)

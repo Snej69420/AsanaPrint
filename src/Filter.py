@@ -19,10 +19,13 @@ class CollapsibleFilter(QWidget):
         super().__init__()
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
 
         # Header Row
         header_widget = QWidget()
         header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(2, 2, 2, 2)
 
         self.toggle_btn = QPushButton(f"▶ {title}")
         self.toggle_btn.setCheckable(True)
@@ -68,9 +71,12 @@ class FilterPanel(QWidget):
         self.filters_container = QWidget()
         self.filters_layout = QVBoxLayout(self.filters_container)
         self.filters_layout.setAlignment(Qt.AlignTop)  # Keep selectors at the top
+        self.filters_layout.setContentsMargins(0, 0, 0, 0)
 
         self.scroll.setWidget(self.filters_container)
+        self.scroll.setFrameShape(QFrame.NoFrame)
         self.layout.addWidget(self.scroll)
+
 
     def _time_filters(self):
         start_row = QHBoxLayout()
@@ -121,6 +127,7 @@ class FilterPanel(QWidget):
         lw = QListWidget()
         lw.setSelectionMode(QAbstractItemView.ExtendedSelection)
         lw.setSizeAdjustPolicy(QAbstractItemView.AdjustToContentsOnFirstShow)
+        lw.setFrameShape(QFrame.NoFrame)
         lw.setMaximumHeight(180)
 
         values = sorted(df[column].dropna().astype(str).unique())
