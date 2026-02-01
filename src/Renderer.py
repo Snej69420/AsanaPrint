@@ -1,9 +1,11 @@
 import math
 from unittest import case
 
+import os
 import pandas as pd
 import plotly.express as px
-import os
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -48,7 +50,7 @@ class GanttRenderer:
         height = self.task_count * self.row_height
         return width, height
 
-    def render(self, df: pd.DataFrame, timescale_config: tuple, color_column: str = None, row_height: int = 35, col_width: int = 40):
+    def render(self, df: pd.DataFrame, timescale_config: tuple, color_column: str = None, row_height: int = 8, col_width: int = 20):
         """
         Renders the Gantt chart and applies the selected timescale.
         time_scale: Plotly dtick format (e.g., 'D1', 'D7', 'M1')
@@ -83,7 +85,7 @@ class GanttRenderer:
             tickformat=self.time_format,
             tickson="boundaries",
             tickmode='linear',
-            showgrid=True
+            showgrid=True,
         )
         fig.update_layout(
             width=width,
