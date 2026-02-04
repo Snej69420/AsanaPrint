@@ -105,23 +105,41 @@ class FilterPanel(QWidget):
         scale_row.addWidget(self.scale_combo)
         self.layout.addLayout(scale_row)
 
-        # Start and End Date Columns
+        # --- UPDATED DATE SELECTOR ---
         date_row = QHBoxLayout()
-        self.dates = QCheckBox("Toon Datums")
-        self.dates.setChecked(False)  # Default off
+        self.dates = QCheckBox("Datums")
+        self.dates.setToolTip("Voegt start en einddatum kolommen toe.")
         date_row.addWidget(self.dates)
 
-        date_row.addWidget(QLabel("Datum Formaat:"))
-        self.date_format = QComboBox()
-        self.date_format.addItems([
-            "%d-%m",
-            "%d-%m-%y",
-            "%y-%m-%d",
-            "%d-%m-%Y",
-            "%Y-%m-%d"
-        ])
-        date_row.addWidget(self.date_format)
+        # Container for the 3 dropdowns
+        settings_box = QHBoxLayout()
+        settings_box.setSpacing(5)
 
+        # 1. Day Selector
+        self.day_format = QComboBox()
+        self.day_format.setToolTip("Dag Formaat")
+        self.day_format.addItem("01", "%d")
+        self.day_format.addItem("Ma 01", "%a %d")
+        self.day_format.addItem("Maandag 01", "%A %d")
+        settings_box.addWidget(self.day_format)
+
+        # 2. Month Selector
+        self.month_format = QComboBox()
+        self.month_format.setToolTip("Maand Formaat")
+        self.month_format.addItem("01", "%m")
+        self.month_format.addItem("Jan", "%b")
+        self.month_format.addItem("Januari", "%B")
+        settings_box.addWidget(self.month_format)
+
+        # 3. Year Selector
+        self.year_format = QComboBox()
+        self.year_format.setToolTip("Jaar Formaat")
+        self.year_format.addItem("Geen", "")
+        self.year_format.addItem("26", "%y")
+        self.year_format.addItem("2026", "%Y")
+        settings_box.addWidget(self.year_format)
+
+        date_row.addLayout(settings_box)
         date_row.addStretch()
         self.layout.addLayout(date_row)
 
@@ -129,7 +147,23 @@ class FilterPanel(QWidget):
         return self.dates.isChecked()
 
     def get_date_format(self) -> str:
-        return self.date_format.currentText()
+        """
+        Constructs the strftime string based on the 3 dropdowns.
+        Auto-selects separator: '-' for numeric months, ' ' for text months.
+        """
+        d = self.day_format.currentData()
+        m = self.month_format.currentData()
+        y = self.year_format.currentData()
+
+        # Logic: Use dashes for pure numbers (01-01), spaces for text (01 Jan)
+        sep = "-" if m == "%m" else " "
+
+        fmt = f"{d}{sep}{m}"
+
+        if y:
+            fmt += f"{sep}{y}"
+
+        return fmt
 
     def build_from_df(self, df: pd.DataFrame):
         self.clear_filters()

@@ -7,13 +7,6 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 LINE_COLOR = "#3b3b3b"
-FORMAT_WIDTH = {
-    "%d-%m": 80,
-    "%d-%m-%y": 90,
-    "%y-%m-%d": 90,
-    "%d-%m-%Y": 100,
-    "%Y-%m-%d": 100,
-}
 
 DAY_IN_MS = 86400000
 D7 = 7 * DAY_IN_MS
@@ -48,6 +41,36 @@ class GanttRenderer:
                 self.days_scale = 84
             case "M12":
                 self.days_scale = 365
+
+    def _date_width(self, fmt: str) -> int:
+        """
+        Dynamically calculates pixel width based on the format string content.
+        """
+        width = 40  # Base padding
+
+        # Day components
+        if "%A" in fmt:
+            width += 60  # Full Day Name (Monday)
+        elif "%a" in fmt:
+            width += 30  # Short Day Name (Mon)
+
+        if "%d" in fmt: width += 20  # Day Number
+
+        # Month components
+        if "%B" in fmt:
+            width += 60  # Full Month Name
+        elif "%b" in fmt:
+            width += 30  # Short Month Name
+        elif "%m" in fmt:
+            width += 20  # Month Number
+
+        # Year components
+        if "%Y" in fmt:
+            width += 40  # Full Year
+        elif "%y" in fmt:
+            width += 20  # Short Year
+
+        return width
 
     def _calculate_dimensions(self):
         """Calculates the chart dimensions."""
@@ -217,7 +240,7 @@ class GanttRenderer:
         if dates:
             target_col = 3
             self.date_format = date_format
-            self.date_width = FORMAT_WIDTH[date_format]
+            self.date_width = self._date_width(date_format)
             total_width = self.date_width + self.date_width + timeline_width
             if total_width == 0: total_width = 1
 
