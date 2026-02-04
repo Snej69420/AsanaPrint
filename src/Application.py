@@ -13,7 +13,6 @@ from DataHandler import DataModel
 from Filter import FilterPanel
 from Renderer import GanttRenderer
 
-
 def create_hline():
     line = QFrame()
     line.setFrameShape(QFrame.HLine)
@@ -84,8 +83,8 @@ class GanttApp(QMainWindow):
         inputs_grid.addWidget(lbl_height, 0, 0)
 
         self.row_height = QSpinBox()
-        self.row_height.setRange(20, 100)
-        self.row_height.setValue(15)
+        self.row_height.setRange(25, 100)
+        self.row_height.setValue(25)
         self.row_height.setFixedWidth(60)
         self.row_height.setToolTip("Pas de hoogte van taken aan")
         inputs_grid.addWidget(self.row_height, 0, 1)
@@ -108,7 +107,7 @@ class GanttApp(QMainWindow):
         # Generate
         self.apply_btn = QPushButton("Update")
         self.apply_btn.clicked.connect(self.apply)
-        self.apply_btn.setStyleSheet("font-weight: bold; background-color: #f0f0f0;")
+        self.apply_btn.setStyleSheet("font-weight: bold;")
         self.apply_btn.setToolTip("Genereer of ververs de Gantt chart")
         self.apply_btn.setEnabled(False)
 
@@ -188,7 +187,7 @@ class GanttApp(QMainWindow):
         r_height = self.row_height.value()
         c_width = self.col_width.value()
 
-        fig = self.renderer.render(df, scale, color_col, r_height, c_width)
+        fig = self.renderer.render(df, scale, r_height, c_width, color_col)
         self.web.setHtml(fig.to_html(include_plotlyjs="cdn"))
 
 
