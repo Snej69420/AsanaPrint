@@ -95,7 +95,7 @@ class GanttApp(QMainWindow):
         inputs_grid.addWidget(lbl_width, 1, 0)
 
         self.col_width = QSpinBox()
-        self.col_width.setRange(4, 100)
+        self.col_width.setRange(1, 100)
         self.col_width.setValue(14)
         self.col_width.setFixedWidth(60)
         self.col_width.setToolTip("Pas de breedte van tijdsblokken aan")
