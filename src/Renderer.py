@@ -187,7 +187,7 @@ class GanttRenderer:
         )
 
     def render(self, df: pd.DataFrame, timescale_config: tuple, row_height: int,
-               col_width: int, color_column: str = None, dates=False, date_format="%d-%m" ):
+               col_width: int, dates, date_format, color_column: str = None):
         """
         Renders the Gantt chart using manual go.Bar traces for maximum stability in subplots.
         """

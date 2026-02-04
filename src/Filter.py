@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListWidget, QAbstractItemView, QDateEdit,
     QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup, QScrollArea,
-    QFrame, QSizePolicy, QPushButton,
+    QFrame, QSizePolicy, QPushButton, QCheckBox
 )
 
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
@@ -96,6 +96,7 @@ class FilterPanel(QWidget):
         end_row.addWidget(self.end_date)
         self.layout.addLayout(end_row)
 
+        # Tijdschaal
         scale_row = QHBoxLayout()
         scale_row.addWidget(QLabel("Tijdschaal:"))
         self.scale_combo = QComboBox()
@@ -103,6 +104,32 @@ class FilterPanel(QWidget):
         self.scale_combo.setCurrentText("Maanden")
         scale_row.addWidget(self.scale_combo)
         self.layout.addLayout(scale_row)
+
+        # Start and End Date Columns
+        date_row = QHBoxLayout()
+        self.dates = QCheckBox("Toon Datums")
+        self.dates.setChecked(False)  # Default off
+        date_row.addWidget(self.dates)
+
+        date_row.addWidget(QLabel("Datum Formaat:"))
+        self.date_format = QComboBox()
+        self.date_format.addItems([
+            "%d-%m",
+            "%d-%m-%y",
+            "%y-%m-%d",
+            "%d-%m-%Y",
+            "%Y-%m-%d"
+        ])
+        date_row.addWidget(self.date_format)
+
+        date_row.addStretch()
+        self.layout.addLayout(date_row)
+
+    def get_show_dates(self) -> bool:
+        return self.dates.isChecked()
+
+    def get_date_format(self) -> str:
+        return self.date_format.currentText()
 
     def build_from_df(self, df: pd.DataFrame):
         self.clear_filters()

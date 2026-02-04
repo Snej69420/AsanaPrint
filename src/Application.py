@@ -187,7 +187,10 @@ class GanttApp(QMainWindow):
         r_height = self.row_height.value()
         c_width = self.col_width.value()
 
-        fig = self.renderer.render(df, scale, r_height, c_width, color_col)
+        show_dates = self.filters.get_show_dates()
+        date_fmt = self.filters.get_date_format()
+
+        fig = self.renderer.render(df, scale, r_height, c_width, show_dates, date_fmt, color_col)
         self.web.setHtml(fig.to_html(include_plotlyjs="cdn"))
 
 
