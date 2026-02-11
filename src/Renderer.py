@@ -9,6 +9,7 @@ from PySide6.QtCore import QStandardPaths
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 LINE_COLOR = "#3b3b3b"
+MARGINS = dict(l=10, r=10, t=10, b=10)
 
 DAY_IN_MS = 86400000
 D7 = 7 * DAY_IN_MS
@@ -72,25 +73,25 @@ class GanttRenderer:
 
         # Day components
         if "%A" in fmt:
-            width += 60  # Full Day Name (Monday)
+            width += 80  # Full Day Name (Monday)
         elif "%a" in fmt:
             width += 30  # Short Day Name (Mon)
 
-        if "%d" in fmt: width += 20  # Day Number
+        if "%d" in fmt: width += 25  # Day Number
 
         # Month components
         if "%B" in fmt:
-            width += 60  # Full Month Name
+            width += 100  # Full Month Name
         elif "%b" in fmt:
-            width += 30  # Short Month Name
+            width += 40  # Short Month Name
         elif "%m" in fmt:
             width += 20  # Month Number
 
         # Year components
         if "%Y" in fmt:
-            width += 40  # Full Year
+            width += 45  # Full Year
         elif "%y" in fmt:
-            width += 20  # Short Year
+            width += 25  # Short Year
 
         return width
 
@@ -107,9 +108,10 @@ class GanttRenderer:
         # Calculate Chart Width & Height
         interval = self.current_df["EndDate"].max() - self.current_df["StartDate"].min()
         timeline_width = interval.days * self.col_width
+        timeline_width = max(timeline_width, 480)
 
         height = self.task_count * self.row_height
-
+        height = max(height, 50)
         return timeline_width, height
 
     def add_dates(self, df, fig, dates):
@@ -253,7 +255,7 @@ class GanttRenderer:
         fig.update_layout(
             width=int(width),
             height=int(height) + 120,
-            margin=dict(l=10, r=10, t=10, b=10),
+            margin=MARGINS,
             yaxis_title="",
             showlegend=True,
             legend=dict(
@@ -316,12 +318,11 @@ class GanttRenderer:
             target_col = 3
             self.date_format = date_format
             self.date_width = self._date_width(date_format)
-            total_width = self.date_width + self.date_width + timeline_width
+            total_width = self.date_width*2 + timeline_width  + MARGINS['l'] + MARGINS['r']
             if total_width == 0: total_width = 1
 
             r_date = self.date_width / total_width
             r_time = timeline_width / total_width
-
             fig = make_subplots(
                 rows=1, cols=3,
                 shared_yaxes=True,
