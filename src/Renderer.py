@@ -105,7 +105,7 @@ class GanttRenderer:
         fig.add_trace(
             go.Scatter(
                 x=[0] * len(df),
-                y=df["TaskName"],
+                y=df["TaskID"].astype(str),
                 text=df["EndDate"].dt.strftime(self.date_format),
                 mode="text",
                 textposition="middle center",
