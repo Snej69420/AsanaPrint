@@ -77,7 +77,7 @@ class GanttRenderer:
         elif "%a" in fmt:
             width += 30  # Short Day Name (Mon)
 
-        if "%d" in fmt: width += 25  # Day Number
+        if "%d" in fmt: width += 20  # Day Number
 
         # Month components
         if "%B" in fmt:
@@ -89,9 +89,9 @@ class GanttRenderer:
 
         # Year components
         if "%Y" in fmt:
-            width += 45  # Full Year
+            width += 40  # Full Year
         elif "%y" in fmt:
-            width += 25  # Short Year
+            width += 20  # Short Year
 
         return width
 
