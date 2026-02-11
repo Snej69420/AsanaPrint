@@ -3,12 +3,14 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListWidget, QAbstractItemView, QDateEdit,
     QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup, QScrollArea,
-    QFrame, QSizePolicy, QPushButton, QCheckBox, QLineEdit
+    QFrame, QSizePolicy, QPushButton, QCheckBox, QLineEdit, QListWidgetItem,
 )
 
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
           "Completed", "Last Modified", "Assignee Email", "Tags", "Parent task",
           "Blocked By (Dependencies)", "Blocking (Dependencies)", )
+
+CUTOFF = 60
 
 
 class CollapsibleFilter(QWidget):
@@ -233,7 +235,14 @@ class FilterPanel(QWidget):
 
         values = sorted(df[column].dropna().astype(str).unique())
         for value in values:
-            lw.addItem(value)
+            display_text = value
+            if len(value) > CUTOFF:
+                display_text = value[:47] + "..."
+
+            item = QListWidgetItem(display_text)
+            item.setToolTip(value)  # Show full text on hover
+            item.setData(Qt.UserRole, value)  # Store original value for filtering
+            lw.addItem(item)
 
         self.options[column] = lw
 
@@ -265,7 +274,7 @@ class FilterPanel(QWidget):
         df = df[mask].copy()
 
         for col, lw in self.options.items():
-            selected = [i.text() for i in lw.selectedItems()]
+            selected = [i.toolTip() for i in lw.selectedItems()]
             if selected:
                 df = df[df[col].astype(str).isin(selected)]
 

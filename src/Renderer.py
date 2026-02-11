@@ -93,7 +93,7 @@ class GanttRenderer:
         fig.add_trace(
             go.Scatter(
                 x=[0] * len(df),
-                y=df["TaskName"],
+                y=df["TaskID"].astype(str),
                 text=df["StartDate"].dt.strftime(self.date_format),
                 mode="text",
                 textposition="middle center",
@@ -138,7 +138,7 @@ class GanttRenderer:
             fig.add_trace(
                 go.Bar(
                     name=str(name),
-                    y=group["TaskName"],
+                    y=group["TaskID"].astype(str),
                     base=group["StartDate"],
                     x=duration,
                     orientation='h',
@@ -157,7 +157,7 @@ class GanttRenderer:
                 row=1, col=target_col
             )
 
-    def apply_layout(self, sorted_tasks, fig, width, height, target_col):
+    def apply_layout(self, task_ids, task_names, fig, width, height, target_col):
         # Configure Gantt Axis
         fig.update_xaxes(
             title_text="",
@@ -173,8 +173,10 @@ class GanttRenderer:
         )
 
         fig.update_yaxes(
-            categoryorder='array',  # Tell Plotly to use our specific list
-            categoryarray=sorted_tasks,  # The list of tasks in the correct Date order
+            tickmode='array',
+            categoryarray=task_ids,
+            tickvals=task_ids,
+            ticktext=task_names,
             showgrid=True,
             gridcolor=LINE_COLOR,
             gridwidth=1,
@@ -227,7 +229,11 @@ class GanttRenderer:
 
         # Setup & Sort Data
         df_sorted = df.sort_values(["StartDate", "EndDate"], ascending=[False, False])
-        sorted_tasks = df_sorted["TaskName"].tolist()
+
+        task_ids = df_sorted["TaskID"].astype(str).tolist()
+        task_names = df_sorted["TaskName"].astype(str).tolist()
+
+        # sorted_tasks = df_sorted["TaskName"].tolist()
         self.current_df = df_sorted
         self.task_count = len(df)
         self.row_height = row_height
@@ -267,7 +273,7 @@ class GanttRenderer:
 
         self.add_dates(df_sorted, fig, dates)
         self.create_gantt_chart(df_sorted, fig, color_column, target_col)
-        self.apply_layout(sorted_tasks, fig, total_width, chart_height, target_col)
+        self.apply_layout(task_ids, task_names, fig, total_width, chart_height, target_col)
 
         self.current_fig = fig
         return fig
