@@ -30,15 +30,8 @@ uv run Application.py
 
 ## Build an executable (.exe)
 
-PyInstaller:
+Run PyInstaller:
 ```bash
 uv run pyinstaller --noconfirm --optimize 2 --onedir --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
 ```
-
-```bash
-uv run pyinstaller --noconfirm --optimize 2 --onefile --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
-```
-Nuitka
-```bash
-uv run -m nuitka --deployment --output-filename="Asana Gantt Exporter" --windows-icon-from-ico=".\logos\Asana Gantt Exporter 3-2.ico" --mingw64 --standalone --onefile --enable-plugin=pyside6 --include-package=plotly --include-package=_plotly_utils --include-package-data=plotly --include-package=kaleido --include-package-data=kaleido --nofollow-import-to=pytest --windows-console-mode=disable .\src\Application.py
-```
+Then run the InnoSetup script to create an installer
