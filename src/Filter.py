@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListWidget, QAbstractItemView, QDateEdit,
     QHBoxLayout, QComboBox, QMessageBox, QRadioButton, QButtonGroup, QScrollArea,
-    QFrame, QSizePolicy, QPushButton, QCheckBox
+    QFrame, QSizePolicy, QPushButton, QCheckBox, QLineEdit
 )
 
 IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
@@ -52,11 +52,18 @@ class FilterPanel(QWidget):
         super().__init__()
         self.options = {}
         self.selector_widgets = {}
+        self.collapsibles = []
         self.color_groups = QButtonGroup(self)
         self.layout = QVBoxLayout(self)
 
         # Time Controls
         self._time_filters()
+
+        # Date Columns
+        self._date_columns()
+
+        # Search & Clear Controls ---
+        self._search_clear()
 
         # Scrollable Area to populate with filters
         self.scroll = QScrollArea()
@@ -105,7 +112,7 @@ class FilterPanel(QWidget):
         scale_row.addWidget(self.scale_combo)
         self.layout.addLayout(scale_row)
 
-        # --- UPDATED DATE SELECTOR ---
+    def _date_columns(self):
         date_row = QHBoxLayout()
         self.dates = QCheckBox("Datums")
         self.dates.setToolTip("Voegt start en einddatum kolommen toe.")
@@ -115,7 +122,7 @@ class FilterPanel(QWidget):
         settings_box = QHBoxLayout()
         settings_box.setSpacing(5)
 
-        # 1. Day Selector
+        # Day Selector
         self.day_format = QComboBox()
         self.day_format.setToolTip("Dag Formaat")
         self.day_format.addItem("01", "%d")
@@ -123,7 +130,7 @@ class FilterPanel(QWidget):
         self.day_format.addItem("Maandag 01", "%A %d")
         settings_box.addWidget(self.day_format)
 
-        # 2. Month Selector
+        # Month Selector
         self.month_format = QComboBox()
         self.month_format.setToolTip("Maand Formaat")
         self.month_format.addItem("01", "%m")
@@ -131,7 +138,7 @@ class FilterPanel(QWidget):
         self.month_format.addItem("Januari", "%B")
         settings_box.addWidget(self.month_format)
 
-        # 3. Year Selector
+        # Year Selector
         self.year_format = QComboBox()
         self.year_format.setToolTip("Jaar Formaat")
         self.year_format.addItem("Geen", "")
@@ -142,6 +149,23 @@ class FilterPanel(QWidget):
         date_row.addLayout(settings_box)
         date_row.addStretch()
         self.layout.addLayout(date_row)
+
+    def _search_clear(self):
+        search_row = QHBoxLayout()
+
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Zoek in filters...")
+        self.search_bar.textChanged.connect(self.filter_options)  # Connect to search logic
+        search_row.addWidget(self.search_bar)
+
+        self.clear_btn = QPushButton("X")
+        self.clear_btn.setToolTip("Wis alle selecties")
+        self.clear_btn.setFixedWidth(30)
+        self.clear_btn.setStyleSheet("font-weight: bold; color: red;")
+        self.clear_btn.clicked.connect(self.reset_selections)
+        search_row.addWidget(self.clear_btn)
+
+        self.layout.addLayout(search_row)
 
     def get_show_dates(self) -> bool:
         return self.dates.isChecked()
@@ -165,8 +189,25 @@ class FilterPanel(QWidget):
 
         return fmt
 
+    def reset_selections(self):
+        """Clears all selections in all list widgets."""
+        for lw in self.options.values():
+            lw.clearSelection()
+
+        self.search_bar.clear()
+
+    def filter_options(self, text):
+        """Hides entire collapsible widgets if their title doesn't match."""
+        search_text = text.lower()
+
+        for widget in self.collapsibles:
+            if not search_text or search_text in widget.toggle_btn.text().lower():
+                widget.setVisible(True)
+            else:
+                widget.setVisible(False)
+
     def build_from_df(self, df: pd.DataFrame):
-        self.clear_filters()
+        self.remove_filters()
         for col in df.columns:
             if col in IGNORE:
                 continue
@@ -199,6 +240,7 @@ class FilterPanel(QWidget):
         # The Collapsible Wrapper
         collapsible = CollapsibleFilter(column, lw, radio)
         self.filters_layout.addWidget(collapsible)
+        self.collapsibles.append(collapsible)
 
     def get_color_column(self) -> str:
         """Returns the name of the column currently selected for coloring."""
@@ -249,7 +291,7 @@ class FilterPanel(QWidget):
             return "M12", "%Y"
         return "M1", "%b\n%Y"
 
-    def clear_filters(self):
+    def remove_filters(self):
         self.options.clear()
         self.selector_widgets.clear()
 

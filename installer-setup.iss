@@ -6,7 +6,7 @@
 ; Do not use the same AppId value in installers for other applications.
 AppId={{779611BC-F2B3-4339-B9CD-232823368E0B}
 AppName=Asana Gantt Exporter
-AppVersion=1.0
+AppVersion=1.1
 ; This displays your name in the "Add/Remove Programs" list
 AppPublisher=Jens Vissenberg
 DefaultDirName={autopf}\Asana Gantt Exporter
