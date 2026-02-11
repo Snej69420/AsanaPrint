@@ -115,7 +115,11 @@ class GanttRenderer:
         )
 
     def create_gantt_chart(self, df, fig, color_column, target_col):
-        """Creates the gantt chart."""
+        """
+        Creates the gantt chart.
+        Utilises the Bar method instead of the timeline
+        since the timeline doesn't work nicely with subplots
+        """
         colors = px.colors.qualitative.G10
 
         # If no color column, treat everything as one group
@@ -189,7 +193,7 @@ class GanttRenderer:
             fig.update_xaxes(visible=False, range=[-1, 1], row=1, col=1)
             fig.update_xaxes(visible=False, range=[-1, 1], row=1, col=2)
 
-            # --- Vertical Separators ---
+            # --- Vertical Separators for date colums ---
             fig.add_vline(x=1, row=1, col=1, line_width=2, line_color=LINE_COLOR)
             fig.add_vline(x=1, row=1, col=2, line_width=2, line_color=LINE_COLOR)
 
@@ -233,14 +237,14 @@ class GanttRenderer:
         task_ids = df_sorted["TaskID"].astype(str).tolist()
         task_names = df_sorted["TaskName"].astype(str).tolist()
 
-        # sorted_tasks = df_sorted["TaskName"].tolist()
+        # store values to use when saving the chart
         self.current_df = df_sorted
         self.task_count = len(df)
         self.row_height = row_height
         self.col_width = col_width
         self._timescale(timescale_config)
 
-        # Calculate Dimensions & Ratios
+        # Calculate Dimensions for the Gantt Chart specifically
         timeline_width, chart_height = self._calculate_dimensions()
 
         if dates:
