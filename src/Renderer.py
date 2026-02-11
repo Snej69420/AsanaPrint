@@ -1,4 +1,6 @@
 import os
+from typing import Any
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -12,7 +14,14 @@ DAY_IN_MS = 86400000
 D7 = 7 * DAY_IN_MS
 
 class GanttRenderer:
+    """
+    Handles the generation and export of Gantt charts using Plotly.
+
+    This class manages the state of the current chart, calculates dimensions based on
+    time scales, and handles the actual drawing of bars and axes.
+    """
     def __init__(self):
+        """Initializes the renderer with default state values."""
         self.current_df = None
         self.current_fig = None
         self.task_count = 0
@@ -26,6 +35,13 @@ class GanttRenderer:
         self.date_format = ""
 
     def _timescale(self, raw_scale):
+        """
+        Parses the timescale configuration tuple into Plotly-compatible formats.
+
+        Args:
+            raw_scale (tuple): A tuple containing (tick_interval, tick_format).
+                               Example: ("M1", "%b\\n%Y")
+        """
         key = raw_scale[0]
         self.timescale = key
         self.time_format = raw_scale[1]
@@ -44,7 +60,13 @@ class GanttRenderer:
 
     def _date_width(self, fmt: str) -> int:
         """
-        Dynamically calculates pixel width based on the format string content.
+        Calculates the required pixel width for date columns based on the format string.
+
+        Args:
+            fmt (str): The strftime format string (e.g., "%d-%b-%Y").
+
+        Returns:
+            int: The calculated width in pixels including padding.
         """
         width = 40  # Base padding
 
@@ -73,7 +95,12 @@ class GanttRenderer:
         return width
 
     def _calculate_dimensions(self):
-        """Calculates the chart dimensions."""
+        """
+        Calculates the total chart dimensions based on the data range and settings.
+
+        Returns:
+            tuple: (timeline_width, height) in pixels.
+        """
         if self.current_df is None:
             return 1920, 1080
 
@@ -86,7 +113,14 @@ class GanttRenderer:
         return timeline_width, height
 
     def add_dates(self, df, fig, dates):
-        """Adds dates to the current figure."""
+        """
+        Adds textual date columns (Start/End) to the left of the Gantt chart.
+
+        Args:
+            df (pd.DataFrame): The sorted dataframe containing task data.
+            fig (go.Figure): The Plotly figure object to update.
+            dates (bool): If False, this method returns immediately.
+        """
         if not dates:
             return
 
@@ -116,10 +150,18 @@ class GanttRenderer:
 
     def create_gantt_chart(self, df, fig, color_column, target_col):
         """
-        Creates the gantt chart.
-        Utilises the Bar method instead of the timeline
-        since the timeline doesn't work nicely with subplots
+        Draws the horizontal bars representing tasks on the timeline.
+
+        It uses `go.Bar` with a base value (start date) rather than `px.timeline`
+        to ensure compatibility with subplots and custom layouts.
+
+        Args:
+            df (pd.DataFrame): The task data.
+            fig (go.Figure): The figure to draw on.
+            color_column (str): The column name to use for color grouping.
+            target_col (int): The subplot column index where the chart should be drawn.
         """
+
         colors = px.colors.qualitative.G10
 
         # If no color column, treat everything as one group
@@ -162,6 +204,17 @@ class GanttRenderer:
             )
 
     def apply_layout(self, task_ids, task_names, fig, width, height, target_col):
+        """
+        Configures the axes, grid, legend, and sizing of the final figure.
+
+        Args:
+            task_ids (list): List of Task IDs for the Y-axis.
+            task_names (list): List of readable Task Names for the Y-axis labels.
+            fig (go.Figure): The figure to style.
+            width (int): Total width of the figure.
+            height (int): Total height of the figure.
+            target_col (int): The subplot column index of the main timeline.
+        """
         # Configure Gantt Axis
         fig.update_xaxes(
             title_text="",
@@ -218,7 +271,19 @@ class GanttRenderer:
     def render(self, df: pd.DataFrame, timescale_config: tuple, row_height: int,
                col_width: int, dates, date_format, color_column: str = None):
         """
-        Renders the Gantt chart using manual go.Bar traces for maximum stability in subplots.
+        Main entry point. Coordinates the creation of the Gantt chart.
+
+        Args:
+            df (pd.DataFrame): The filtered dataframe containing tasks.
+            timescale_config (tuple): Configuration for the time axis (interval, format).
+            row_height (int): Height of a single task row in pixels.
+            col_width (int): Width of a single time unit column in pixels.
+            dates (bool): Whether to show the specific Start/End date columns.
+            date_format (str): Format string for date text (e.g., "%d-%m").
+            color_column (str, optional): Column name to color-code bars by.
+
+        Returns:
+            go.Figure: The fully constructed Plotly figure, or None if input is empty.
         """
         if df.empty:
             return None
@@ -283,6 +348,13 @@ class GanttRenderer:
         return fig
 
     def export(self, parent_widget, fmt: str):
+        """
+        Opens a file dialog to save the current chart to disk.
+
+        Args:
+            parent_widget (QWidget): The parent UI widget (used for the dialog).
+            fmt (str): The export format ('html', 'png', or 'pdf').
+        """
         if not self.current_fig:
             QMessageBox.warning(parent_widget, "Export", "Er is geen chart om te exporteren.")
             return
