@@ -12,11 +12,31 @@ IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
 
 CUTOFF = 60
 
+class ToggleableRadioButton(QRadioButton):
+    """A custom radio button that allows deselection when clicked again."""
+    def mousePressEvent(self, event):
+        self._was_checked = self.isChecked()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if self._was_checked:
+            # QButtonGroup enforces exclusivity, so we must disable it temporarily
+            group = self.group()
+            if group:
+                group.setExclusive(False)
+                self.setChecked(False)
+                group.setExclusive(True)
+            else:
+                self.setAutoExclusive(False)
+                self.setChecked(False)
+                self.setAutoExclusive(True)
+
 
 class CollapsibleFilter(QWidget):
     """A wrapper widget that contains a header button and a content list."""
 
-    def __init__(self, title, list_widget, color_radio):
+    def __init__(self, title, list_widget, color_radio, group_radio):
         super().__init__()
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.layout = QVBoxLayout(self)
@@ -35,6 +55,7 @@ class CollapsibleFilter(QWidget):
 
         header_layout.addWidget(self.toggle_btn, 1)
         header_layout.addWidget(color_radio)
+        header_layout.addWidget(group_radio)
 
         # Content (The ListWidget)
         self.content = list_widget
@@ -56,6 +77,7 @@ class FilterPanel(QWidget):
         self.selector_widgets = {}
         self.collapsibles = []
         self.color_groups = QButtonGroup(self)
+        self.aggregate_groups = QButtonGroup(self)
         self.layout = QVBoxLayout(self)
 
         # Time Controls
@@ -192,11 +214,25 @@ class FilterPanel(QWidget):
         return fmt
 
     def reset_selections(self):
-        """Clears all selections in all list widgets."""
+        """Clears all selections in all list widgets and radio buttons."""
         for lw in self.options.values():
             lw.clearSelection()
 
         self.search_bar.clear()
+
+        # Uncheck Color radio buttons
+        if self.color_groups.buttons():
+            self.color_groups.setExclusive(False)
+            for btn in self.color_groups.buttons():
+                btn.setChecked(False)
+            self.color_groups.setExclusive(True)
+
+        # Uncheck Group radio buttons
+        if self.aggregate_groups.buttons():
+            self.aggregate_groups.setExclusive(False)
+            for btn in self.aggregate_groups.buttons():
+                btn.setChecked(False)
+            self.aggregate_groups.setExclusive(True)
 
     def filter_options(self, text):
         """Hides entire collapsible widgets if their title doesn't match."""
@@ -221,10 +257,13 @@ class FilterPanel(QWidget):
             self.add_filter_block(col, df)
 
     def add_filter_block(self, column: str, df: pd.DataFrame):
-        # Color Radio Button
-        radio = QRadioButton("Kleur")
-        radio.setProperty("column_name", column)
-        self.color_groups.addButton(radio)
+        color = ToggleableRadioButton("Kleur")
+        color.setProperty("column_name", column)
+        self.color_groups.addButton(color)
+
+        aggregate = ToggleableRadioButton("Groepeer")
+        aggregate.setProperty("column_name", column)
+        self.aggregate_groups.addButton(aggregate)
 
         # The List Widget
         lw = QListWidget()
@@ -247,13 +286,20 @@ class FilterPanel(QWidget):
         self.options[column] = lw
 
         # The Collapsible Wrapper
-        collapsible = CollapsibleFilter(column, lw, radio)
+        collapsible = CollapsibleFilter(column, lw, color, aggregate)
         self.filters_layout.addWidget(collapsible)
         self.collapsibles.append(collapsible)
 
     def get_color_column(self) -> str:
         """Returns the name of the column currently selected for coloring."""
         checked_button = self.color_groups.checkedButton()
+        if checked_button:
+            return checked_button.property("column_name")
+        return None
+
+    def get_group_column(self) -> str:
+        """Returns the name of the column currently selected for grouping."""
+        checked_button = self.aggregate_groups.checkedButton()
         if checked_button:
             return checked_button.property("column_name")
         return None

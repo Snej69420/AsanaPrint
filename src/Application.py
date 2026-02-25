@@ -181,15 +181,19 @@ class GanttApp(QMainWindow):
 
         if df.empty:
             return
+
         scale = self.filters.get_scale_config()
         color_col = self.filters.get_color_column()
+        group_col = self.filters.get_group_column()  # <-- Fetch the group column
+
         r_height = self.row_height.value()
         c_width = self.col_width.value()
 
         show_dates = self.filters.get_show_dates()
         date_fmt = self.filters.get_date_format()
 
-        fig = self.renderer.render(df, scale, r_height, c_width, show_dates, date_fmt, color_col)
+        # Pass group_col to the renderer
+        fig = self.renderer.render(df, scale, r_height, c_width, show_dates, date_fmt, color_col, group_col)
         self.web.setHtml(fig.to_html(include_plotlyjs="cdn"))
 
 

@@ -14,35 +14,22 @@ MARGINS = dict(l=10, r=10, t=10, b=10)
 DAY_IN_MS = 86400000
 D7 = 7 * DAY_IN_MS
 
-class GanttRenderer:
-    """
-    Handles the generation and export of Gantt charts using Plotly.
 
-    This class manages the state of the current chart, calculates dimensions based on
-    time scales, and handles the actual drawing of bars and axes.
-    """
+class GanttRenderer:
     def __init__(self):
-        """Initializes the renderer with default state values."""
         self.current_df = None
         self.current_fig = None
         self.task_count = 0
         self.row_height = 0
         self.col_width = 0
         self.timescale = "M1"
-        self.time_format = "%b\n%Y" # for Gantt Chart
+        self.time_format = "%b\n%Y"
         self.days_scale = 0
 
         self.date_width = 0
         self.date_format = ""
 
     def _timescale(self, raw_scale):
-        """
-        Parses the timescale configuration tuple into Plotly-compatible formats.
-
-        Args:
-            raw_scale (tuple): A tuple containing (tick_interval, tick_format).
-                               Example: ("M1", "%b\\n%Y")
-        """
         key = raw_scale[0]
         self.timescale = key
         self.time_format = raw_scale[1]
@@ -60,52 +47,28 @@ class GanttRenderer:
                 self.days_scale = 365
 
     def _date_width(self, fmt: str) -> int:
-        """
-        Calculates the required pixel width for date columns based on the format string.
-
-        Args:
-            fmt (str): The strftime format string (e.g., "%d-%b-%Y").
-
-        Returns:
-            int: The calculated width in pixels including padding.
-        """
-        width = 40  # Base padding
-
-        # Day components
+        width = 40
         if "%A" in fmt:
-            width += 80  # Full Day Name (Monday)
+            width += 80
         elif "%a" in fmt:
-            width += 30  # Short Day Name (Mon)
-
-        if "%d" in fmt: width += 20  # Day Number
-
-        # Month components
+            width += 30
+        if "%d" in fmt: width += 20
         if "%B" in fmt:
-            width += 100  # Full Month Name
+            width += 100
         elif "%b" in fmt:
-            width += 40  # Short Month Name
+            width += 40
         elif "%m" in fmt:
-            width += 20  # Month Number
-
-        # Year components
+            width += 20
         if "%Y" in fmt:
-            width += 40  # Full Year
+            width += 40
         elif "%y" in fmt:
-            width += 20  # Short Year
-
+            width += 20
         return width
 
     def _calculate_dimensions(self):
-        """
-        Calculates the total chart dimensions based on the data range and settings.
-
-        Returns:
-            tuple: (timeline_width, height) in pixels.
-        """
         if self.current_df is None:
             return 1920, 1080
 
-        # Calculate Chart Width & Height
         interval = self.current_df["EndDate"].max() - self.current_df["StartDate"].min()
         timeline_width = interval.days * self.col_width
         timeline_width = max(timeline_width, 480)
@@ -114,248 +77,194 @@ class GanttRenderer:
         height = max(height, 50)
         return timeline_width, height
 
-    def add_dates(self, df, fig, dates):
-        """
-        Adds textual date columns (Start/End) to the left of the Gantt chart.
-
-        Args:
-            df (pd.DataFrame): The sorted dataframe containing task data.
-            fig (go.Figure): The Plotly figure object to update.
-            dates (bool): If False, this method returns immediately.
-        """
+    def add_dates(self, df, fig, dates, group_column):
         if not dates:
             return
 
-        fig.add_trace(
-            go.Scatter(
-                x=[0] * len(df),
-                y=df["TaskID"].astype(str),
-                text=df["StartDate"].dt.strftime(self.date_format),
-                mode="text",
-                textposition="middle center",
-                showlegend=False,
-                hoverinfo="skip"
-            ), row=1, col=1
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=[0] * len(df),
-                y=df["TaskID"].astype(str),
-                text=df["EndDate"].dt.strftime(self.date_format),
-                mode="text",
-                textposition="middle center",
-                showlegend=False,
-                hoverinfo="skip"
-            ), row=1, col=2
-        )
-
-    def create_gantt_chart(self, df, fig, color_column, target_col):
-        """
-        Draws the horizontal bars representing tasks on the timeline.
-
-        It uses `go.Bar` with a base value (start date) rather than `px.timeline`
-        to ensure compatibility with subplots and custom layouts.
-
-        Args:
-            df (pd.DataFrame): The task data.
-            fig (go.Figure): The figure to draw on.
-            color_column (str): The column name to use for color grouping.
-            target_col (int): The subplot column index where the chart should be drawn.
-        """
-
-        colors = px.colors.qualitative.G10
-
-        # If no color column, treat everything as one group
-        if not color_column or color_column not in df.columns:
-            groups = [("Tasks", df)]
+        if group_column and group_column in df.columns:
+            y_data = [df[group_column], df["UniqueName"]]
         else:
-            groups = df.groupby(color_column)
+            y_data = df["UniqueName"]
+
+        fig.add_trace(
+            go.Scatter(x=[0] * len(df), y=y_data, text=df["StartDate"].dt.strftime(self.date_format), mode="text",
+                       textposition="middle center", showlegend=False, hoverinfo="skip"), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(x=[0] * len(df), y=y_data, text=df["EndDate"].dt.strftime(self.date_format), mode="text",
+                       textposition="middle center", showlegend=False, hoverinfo="skip"), row=1, col=2)
+
+    def create_gantt_chart(self, df, fig, color_column, target_col, group_column):
+        colors = px.colors.qualitative.G10
+        groups = [("Tasks", df)] if not color_column or color_column not in df.columns else df.groupby(color_column)
 
         color_idx = 0
         for name, group in groups:
             c = colors[color_idx % len(colors)]
             color_idx += 1
-
-            # Calculate Duration
-            # Plotly Horizontal Bars on a Date Axis:
-            # base = Start Date
-            # x = Duration (milliseconds)
             duration = (group["EndDate"] - group["StartDate"]).dt.total_seconds() * 1000
+
+            if group_column and group_column in df.columns:
+                y_data = [group[group_column], group["UniqueName"]]
+            else:
+                y_data = group["UniqueName"]
 
             fig.add_trace(
                 go.Bar(
-                    name=str(name),
-                    y=group["TaskID"].astype(str),
-                    base=group["StartDate"],
-                    x=duration,
-                    orientation='h',
-                    marker=dict(color=c),
-                    # IMPORTANT: width=0.8 forces the bar to be thick (80% of row height)
-                    width=0.8,
+                    name=str(name), y=y_data, base=group["StartDate"], x=duration,
+                    orientation='h', marker=dict(color=c), width=0.8,
                     hovertemplate=(
-                            f"<b>{name}</b><br>" +
-                            "Taak: %{y}<br>" +
-                            "Start Datum: %{base|%d-%m-%Y}<br>" +
-                            "Eind Datum: %{customdata[0]|%d-%m-%Y}<br>" +
-                            "<extra></extra>"  # Hides the secondary box
-                    ),
-                    customdata=group[["EndDate"]],  # Pass EndDate for hover
+                        f"<b>{name}</b><br>Taak: %{{customdata[1]}}<br>Start Datum: %{{base|%d-%m-%Y}}<br>Eind Datum: %{{customdata[0]|%d-%m-%Y}}<br><extra></extra>"),
+                    customdata=group[["EndDate", "TaskName"]],
                 ),
                 row=1, col=target_col
             )
 
-    def apply_layout(self, task_ids, task_names, fig, width, height, target_col):
-        """
-        Configures the axes, grid, legend, and sizing of the final figure.
-
-        Args:
-            task_ids (list): List of Task IDs for the Y-axis.
-            task_names (list): List of readable Task Names for the Y-axis labels.
-            fig (go.Figure): The figure to style.
-            width (int): Total width of the figure.
-            height (int): Total height of the figure.
-            target_col (int): The subplot column index of the main timeline.
-        """
-        # Configure Gantt Axis
+    def apply_layout(self, fig, width, height, target_col):
         fig.update_xaxes(
-            title_text="",
-            type='date',
-            dtick=self.timescale,
-            tickformat=self.time_format,
-            tickson="boundaries",
-            tickmode='linear',
-            showgrid=True,
-            gridcolor='lightgray',
-            side='top',
-            row=1, col=target_col
+            title_text="", type='date', dtick=self.timescale, tickformat=self.time_format,
+            tickson="boundaries", tickmode='linear', showgrid=True, gridcolor='lightgray',
+            side='top', row=1, col=target_col
         )
 
+        # Force Y-axis to read top-to-bottom so the earliest task sits at the top
         fig.update_yaxes(
-            tickmode='array',
-            categoryarray=task_ids,
-            tickvals=task_ids,
-            ticktext=task_names,
-            showgrid=True,
-            gridcolor=LINE_COLOR,
-            gridwidth=1,
-            tickson="boundaries",
-            zeroline=False,
+            autorange="reversed", showgrid=True, gridcolor=LINE_COLOR,
+            gridwidth=1, tickson="boundaries", zeroline=False
         )
 
         if target_col == 3:
-            # No X-axis for the date columns
             fig.update_xaxes(visible=False, range=[-1, 1], row=1, col=1)
             fig.update_xaxes(visible=False, range=[-1, 1], row=1, col=2)
-
-            # --- Vertical Separators for date colums ---
             fig.add_vline(x=1, row=1, col=1, line_width=2, line_color=LINE_COLOR)
             fig.add_vline(x=1, row=1, col=2, line_width=2, line_color=LINE_COLOR)
 
         fig.update_layout(
-            width=int(width),
-            height=int(height) + 120,
-            margin=MARGINS,
-            yaxis_title="",
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                xanchor="right", x=0.995,
-                yanchor="top", y=0.995,
-                bgcolor="rgba(255, 255, 255, 0.8)",
-                bordercolor="Black",
-                borderwidth=1
-            ),
-            barmode='overlay',  # Ensures bars draw over grid lines correctly
-            hovermode='closest'
+            width=int(width), height=int(height) + 120, margin=MARGINS, yaxis_title="",
+            showlegend=True, legend=dict(orientation="v", xanchor="right", x=0.995, yanchor="top", y=0.995,
+                                         bgcolor="rgba(255, 255, 255, 0.8)", bordercolor="Black", borderwidth=1),
+            barmode='overlay', hovermode='closest'
         )
 
     def render(self, df: pd.DataFrame, timescale_config: tuple, row_height: int,
-               col_width: int, dates, date_format, color_column: str = None):
-        """
-        Main entry point. Coordinates the creation of the Gantt chart.
-
-        Args:
-            df (pd.DataFrame): The filtered dataframe containing tasks.
-            timescale_config (tuple): Configuration for the time axis (interval, format).
-            row_height (int): Height of a single task row in pixels.
-            col_width (int): Width of a single time unit column in pixels.
-            dates (bool): Whether to show the specific Start/End date columns.
-            date_format (str): Format string for date text (e.g., "%d-%m").
-            color_column (str, optional): Column name to color-code bars by.
-
-        Returns:
-            go.Figure: The fully constructed Plotly figure, or None if input is empty.
-        """
+               col_width: int, dates, date_format, color_column: str = None, group_column: str = None):
         if df.empty:
             return None
 
+        # Filter out NaNs
         if color_column and color_column in df.columns:
-            # Filter out NaNs and empty strings
             df = df[df[color_column].notna() & (df[color_column] != "")]
+        if group_column and group_column in df.columns:
+            df = df[df[group_column].notna() & (df[group_column] != "")]
 
-            # Double check if we still have data after filtering
-            if df.empty:
-                return None
+        if df.empty: return None
 
-        # Setup & Sort Data
-        df_sorted = df.sort_values(["StartDate", "EndDate"], ascending=[False, False])
+        # 1. SETUP & SORT DATA
+        # Ascending=True ensures earliest start dates are first. Same start date -> earlier end date first.
+        if group_column and group_column in df.columns:
+            df_sorted = df.sort_values([group_column, "StartDate", "EndDate"], ascending=[True, True, True])
+            df_sorted[group_column] = f"{group_column}: " + df_sorted[group_column].astype(str)
 
-        task_ids = df_sorted["TaskID"].astype(str).tolist()
-        task_names = df_sorted["TaskName"].astype(str).tolist()
+        else:
+            df_sorted = df.sort_values(["StartDate", "EndDate"], ascending=[True, True])
 
-        # store values to use when saving the chart
+        # Create guaranteed unique task names using zero-width spaces (\u200b)
+        counts = {}
+        unique_names = []
+        for name in df_sorted["TaskName"].astype(str):
+            if name in counts:
+                counts[name] += 1
+                unique_names.append(name + ("\u200b" * counts[name]))
+            else:
+                counts[name] = 0
+                unique_names.append(name)
+        df_sorted["UniqueName"] = unique_names
+
         self.current_df = df_sorted
         self.task_count = len(df)
         self.row_height = row_height
         self.col_width = col_width
         self._timescale(timescale_config)
 
-        # Calculate Dimensions for the Gantt Chart specifically
         timeline_width, chart_height = self._calculate_dimensions()
 
         if dates:
             target_col = 3
             self.date_format = date_format
             self.date_width = self._date_width(date_format)
-            total_width = self.date_width*2 + timeline_width  + MARGINS['l'] + MARGINS['r']
+            total_width = self.date_width * 2 + timeline_width + MARGINS['l'] + MARGINS['r']
             if total_width == 0: total_width = 1
 
             r_date = self.date_width / total_width
-            r_time = timeline_width / total_width
             fig = make_subplots(
-                rows=1, cols=3,
-                shared_yaxes=True,
-                horizontal_spacing=0,
-                column_widths=[r_date, r_date, r_time],
+                rows=1, cols=3, shared_yaxes=True, horizontal_spacing=0,
+                column_widths=[r_date, r_date, timeline_width / total_width],
                 subplot_titles=("Start<br>Datum", "Eind<br>Datum", "")
             )
         else:
             target_col = 1
             total_width = timeline_width
-            fig = make_subplots(
-                rows=1, cols=1,
-                shared_yaxes=True,
-                horizontal_spacing=0,
-                column_widths=[1],
-                subplot_titles=""
+            fig = make_subplots(rows=1, cols=1, shared_yaxes=True, horizontal_spacing=0)
+
+        # 2. DUMMY TRACE
+        # This invisible trace passes all tasks to Plotly in exactly the sorted order FIRST.
+        # This locks the Y-Axis into perfect chronological order, preventing color groups from ruining it.
+        if group_column and group_column in df.columns:
+            y_dummy = [df_sorted[group_column], df_sorted["UniqueName"]]
+        else:
+            y_dummy = df_sorted["UniqueName"]
+
+        fig.add_trace(
+            go.Scatter(
+                x=[df_sorted["StartDate"].min()] * len(df_sorted),
+                y=y_dummy, mode='markers', marker=dict(color='rgba(0,0,0,0)'),
+                showlegend=False, hoverinfo='skip'
+            ),
+            row=1, col=target_col
+        )
+
+        # 3. DRAW CHART
+        self.add_dates(df_sorted, fig, dates, group_column)
+        self.create_gantt_chart(df_sorted, fig, color_column, target_col, group_column)
+        self.apply_layout(fig, total_width, chart_height, target_col)
+
+        # 4. DRAW GROUP SEPARATOR LINES
+        if group_column and group_column in df_sorted.columns:
+            group_values = df_sorted[group_column].tolist()
+            total_tasks = len(group_values)
+
+            # 1. Draw the top boundary line (above the first item)
+            fig.add_shape(
+                type="line",
+                xref="paper", x0=0, x1=1,
+                yref="y", y0=-0.5, y1=-0.5,
+                line=dict(color="#111111", width=2),
+                layer="above"
             )
 
-        self.add_dates(df_sorted, fig, dates)
-        self.create_gantt_chart(df_sorted, fig, color_column, target_col)
-        self.apply_layout(task_ids, task_names, fig, total_width, chart_height, target_col)
+            # 2. Draw the inner separator lines (between groups)
+            for i in range(1, total_tasks):
+                if group_values[i] != group_values[i - 1]:
+                    fig.add_shape(
+                        type="line",
+                        xref="paper", x0=0, x1=1,
+                        yref="y", y0=i - 0.5, y1=i - 0.5,
+                        line=dict(color="#111111", width=2),
+                        layer="above"
+                    )
+
+            # 3. Draw the bottom boundary line (below the last item)
+            fig.add_shape(
+                type="line",
+                xref="paper", x0=0, x1=1,
+                yref="y", y0=total_tasks - 0.5, y1=total_tasks - 0.5,
+                line=dict(color="#111111", width=2),
+                layer="above"
+            )
 
         self.current_fig = fig
         return fig
 
     def export(self, parent_widget, fmt: str):
-        """
-        Opens a file dialog to save the current chart to disk.
-
-        Args:
-            parent_widget (QWidget): The parent UI widget (used for the dialog).
-            fmt (str): The export format ('html', 'png', or 'pdf').
-        """
         if not self.current_fig:
             QMessageBox.warning(parent_widget, "Export", "Er is geen chart om te exporteren.")
             return
