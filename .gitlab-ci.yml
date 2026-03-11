@@ -1,0 +1,13 @@
+image: python:3.12
+
+pages:
+  stage: deploy
+  script:
+    - uv pip install mkdocs mkdocs-material mkdocstrings[python]
+    # - uv sync
+    - uv run mkdocs build --site-dir public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
