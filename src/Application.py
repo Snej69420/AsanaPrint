@@ -14,13 +14,39 @@ from Filter import FilterPanel
 from Renderer import GanttRenderer
 
 def create_hline():
+    """
+    Creates a horizontal line widget for UI visual separation.
+
+    Returns:
+        QFrame: A horizontal styled frame acting as a divider.
+    """
     line = QFrame()
     line.setFrameShape(QFrame.HLine)
     line.setFrameShadow(QFrame.Sunken)
     return line
 
 class GanttApp(QMainWindow):
+    """
+    Main application window for the Asana Gantt Viewer.
+
+    This class orchestrates the overall user interface, managing the layout
+    between the control panel (filters, settings) and the Gantt chart on the right.
+    It coordinates actions between the DataModel, FilterPanel, and GanttRenderer.
+
+    Attributes:
+        data (DataModel): Handles the loading and cleaning of Asana CSV data.
+        filters (FilterPanel): Manages the dynamic UI for user-selected filters.
+        renderer (GanttRenderer): Handles Plotly chart generation and layout.
+        control_panel (QWidget): The left-side UI container for controls.
+        content (QWidget): The inner container for load, filter, and export controls.
+        web (QWebEngineView): The browser widget to display the Plotly HTML output.
+        splitter (QSplitter): The resizable divider between controls and the chart.
+    """
+
     def __init__(self):
+        """
+            Initializes the main window, sets up the UI layout, and instantiates core components.
+        """
         super().__init__()
         self.setWindowTitle("Asana Gantt Viewer")
 
@@ -150,6 +176,9 @@ class GanttApp(QMainWindow):
         main_layout.addWidget(self.splitter)
 
     def toggle_sidebar(self):
+        """
+        A toggle to minimise or expand the control panel.
+        """
         if self.content.isVisible():
             self.content.hide()
             self.toggle_btn.setText(">")
@@ -160,6 +189,10 @@ class GanttApp(QMainWindow):
             self.splitter.restoreState(self.saved_splitter_state)
 
     def load_csv(self):
+        """
+        Opens a file dialog for the user to select an Asana CSV export file.
+        Loads and cleans the file into a pandas dataframe.
+        """
         downloads_path = QStandardPaths.writableLocation(QStandardPaths.DownloadLocation)
 
         if not downloads_path:
@@ -176,6 +209,9 @@ class GanttApp(QMainWindow):
         self.apply_btn.setEnabled(True)
 
     def apply(self):
+        """
+        Applies the currently selected filters and settings to generate the chart.
+        """
         df = self.data.df.copy()
         df = self.filters.apply_filters(df)
 
