@@ -32,6 +32,6 @@ uv run Application.py
 
 Run PyInstaller:
 ```bash
-uv run pyinstaller --noconfirm --optimize 2 --onedir --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
+uv run pyinstaller --noconfirm --optimize 2 --onedir --windowed --name "AsanaGanttExporter" --icon="logos\Asana Gantt Exporter 3-2.ico" --version-file="version.txt" --collect-all PySide6 --hidden-import PySide6.QtWebEngineWidgets --hidden-import PySide6.QtWebEngineCore ".\src\Application.py"
 ```
 Then run the InnoSetup script to create an installer

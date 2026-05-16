@@ -8,7 +8,7 @@ AppId={{779611BC-F2B3-4339-B9CD-232823368E0B}
 AppName=Asana Gantt Exporter
 AppVersion=1.3.0
 
-VersionInfoVersion=1.0.0.0
+VersionInfoVersion=1.3.0.0
 VersionInfoProductVersion=1.3.0.0
 VersionInfoProductName=Asana Gantt Exporter
 VersionInfoCompany=Steen Vastgoed (Beego)
