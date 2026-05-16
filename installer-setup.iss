@@ -7,6 +7,13 @@
 AppId={{779611BC-F2B3-4339-B9CD-232823368E0B}
 AppName=Asana Gantt Exporter
 AppVersion=1.3.0
+
+VersionInfoVersion=1.0.0.0
+VersionInfoProductVersion=1.3.0.0
+VersionInfoProductName=Asana Gantt Exporter
+VersionInfoCompany=Steen Vastgoed (Beego)
+VersionInfoDescription=Asana Gantt Exporter Setup
+
 ; This displays your name in the "Add/Remove Programs" list
 AppPublisher=Jens Vissenberg
 DefaultDirName={autopf}\Asana Gantt Exporter
