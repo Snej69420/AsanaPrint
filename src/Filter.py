@@ -13,12 +13,32 @@ IGNORE = ("TaskID", "TaskName", "StartDate", "EndDate", "Created",
 CUTOFF = 60
 
 class ToggleableRadioButton(QRadioButton):
-    """A custom radio button that allows deselection when clicked again."""
+    """
+    A custom radio button that allows deselection when clicked again.
+
+    Standard QRadioButtons inside a QButtonGroup cannot be deselected by the user.
+    This subclass overrides mouse events to allow toggling off an already-checked state.
+    """
+
     def mousePressEvent(self, event):
+        """
+        Records the checked state before the standard press event occurs.
+
+        Args:
+            event (QMouseEvent): The mouse press event.
+        """
         self._was_checked = self.isChecked()
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
+        """
+        Toggles off the radio button if it was already checked before the press.
+
+        Temporarily disables exclusivity on the parent group to allow deselection.
+
+        Args:
+            event (QMouseEvent): The mouse release event.
+        """
         super().mouseReleaseEvent(event)
         if self._was_checked:
             # QButtonGroup enforces exclusivity, so we must disable it temporarily
@@ -34,9 +54,28 @@ class ToggleableRadioButton(QRadioButton):
 
 
 class CollapsibleFilter(QWidget):
-    """A wrapper widget that contains a header button and a content list."""
+    """
+    A wrapper widget that contains a header button and a collapsible content list.
+
+    Used to present individual column filters in a space-saving manner.
+    It also includes radio buttons to select the column for coloring or grouping.
+
+    Attributes:
+        layout (QVBoxLayout): The main layout for the wrapper.
+        toggle_btn (QPushButton): The button used to expand/collapse the content.
+        content (QListWidget): The list widget containing the actual filter items.
+    """
 
     def __init__(self, title, list_widget, color_radio, group_radio):
+        """
+        Initializes the collapsible wrapper.
+
+        Args:
+            title (str): The name of the category/column.
+            list_widget (QListWidget): The widget containing the selectable options.
+            color_radio (ToggleableRadioButton): The radio button for color-coding.
+            group_radio (ToggleableRadioButton): The radio button for grouping.
+        """
         super().__init__()
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.layout = QVBoxLayout(self)
@@ -65,13 +104,31 @@ class CollapsibleFilter(QWidget):
         self.layout.addWidget(self.content)
 
     def toggle_content(self):
+        """
+        Expands or collapses the inner list widget.
+        Updates the arrow icon on the toggle button (▶ or ▼) to reflect the state.
+        """
         is_visible = self.toggle_btn.isChecked()
         self.content.setVisible(is_visible)
         self.toggle_btn.setText(f"{'▼' if is_visible else '▶'} {self.toggle_btn.text()[2:]}")
 
 
 class FilterPanel(QWidget):
+    """
+    The main control panel for filtering tasks and setting view parameters.
+
+    This panel dynamically generates UI elements based on the loaded DataFrame,
+    allowing users to filter by date range, specific searchable categories.
+    It also manages global visualization settings like timescale and date formatting.
+
+    Attributes:
+        options (dict): Maps column names to their respective QListWidgets.
+        collapsibles (list): Stores references to all created CollapsibleFilter widgets.
+        color_groups (QButtonGroup): Manages the exclusivity of the 'Color' radio buttons.
+        aggregate_groups (QButtonGroup): Manages the exclusivity of the 'Group' radio buttons.
+    """
     def __init__(self):
+        """Initializes the FilterPanel, setting up static UI components."""
         super().__init__()
         self.options = {}
         self.selector_widgets = {}
@@ -107,8 +164,11 @@ class FilterPanel(QWidget):
         self.scroll.setFrameShape(QFrame.NoFrame)
         self.layout.addWidget(self.scroll)
 
-
     def _time_filters(self):
+        """
+        Initialisation Helper
+        Sets up the start/end date selectors and the timescale dropdown.
+        """
         start_row = QHBoxLayout()
         start_row.addWidget(QLabel("Start Datum ≥"))
         self.start_date = QDateEdit()
@@ -137,6 +197,10 @@ class FilterPanel(QWidget):
         self.layout.addLayout(scale_row)
 
     def _date_columns(self):
+        """
+        Initialisation Helper
+        Sets up the UI for enabling date columns and selecting their text format.
+        """
         date_row = QHBoxLayout()
         self.dates = QCheckBox("Datums")
         self.dates.setToolTip("Voegt start en einddatum kolommen toe.")
@@ -175,6 +239,10 @@ class FilterPanel(QWidget):
         self.layout.addLayout(date_row)
 
     def _search_clear(self):
+        """
+        Initialisation Helper
+        Sets up the text search bar and the global clear/reset button.
+        """
         search_row = QHBoxLayout()
 
         self.search_bar = QLineEdit()
@@ -192,12 +260,22 @@ class FilterPanel(QWidget):
         self.layout.addLayout(search_row)
 
     def get_show_dates(self) -> bool:
+        """
+        Checks if the user wants date columns rendered on the chart.
+
+        Returns:
+            bool: True if the 'Datums' checkbox is checked, False otherwise.
+        """
         return self.dates.isChecked()
 
     def get_date_format(self) -> str:
         """
-        Constructs the strftime string based on the 3 dropdowns.
+        Constructs the strftime format string based on user dropdown selections.
+
         Auto-selects separator: '-' for numeric months, ' ' for text months.
+
+        Returns:
+            str: A formatted datetime string (e.g., "%d-%m-%Y").
         """
         d = self.day_format.currentData()
         m = self.month_format.currentData()
@@ -214,7 +292,12 @@ class FilterPanel(QWidget):
         return fmt
 
     def reset_selections(self):
-        """Clears all selections in all list widgets and radio buttons."""
+        """
+        Clears all active user selections across the entire panel.
+
+        This unselects list items, clears the search bar, and unchecks all
+        color and grouping radio buttons.
+        """
         for lw in self.options.values():
             lw.clearSelection()
 
@@ -235,7 +318,12 @@ class FilterPanel(QWidget):
             self.aggregate_groups.setExclusive(True)
 
     def filter_options(self, text):
-        """Hides entire collapsible widgets if their title doesn't match."""
+        """
+        Filters the visibility of collapsible blocks based on the search input.
+
+        Args:
+            text (str): The search string entered by the user.
+        """
         search_text = text.lower()
 
         for widget in self.collapsibles:
@@ -245,6 +333,13 @@ class FilterPanel(QWidget):
                 widget.setVisible(False)
 
     def build_from_df(self, df: pd.DataFrame):
+        """
+        Dynamically generates categorical filter lists from the provided DataFrame.
+        Skips specific columns defined in `IGNORE` and columns with no unique values.
+
+        Args:
+            df (pd.DataFrame): The full loaded Asana data.
+        """
         self.remove_filters()
         for col in df.columns:
             if col in IGNORE:
@@ -257,6 +352,16 @@ class FilterPanel(QWidget):
             self.add_filter_block(col, df)
 
     def add_filter_block(self, column: str, df: pd.DataFrame):
+        """
+        Creates a new collapsible widget for a specific dataframe column.
+
+        Extracts unique values, truncates them if they exceed `CUTOFF`, and places
+        them in a QListWidget.
+
+        Args:
+            column (str): The name of the DataFrame column.
+            df (pd.DataFrame): The data used to populate the list options.
+        """
         color = ToggleableRadioButton("Kleur")
         color.setProperty("column_name", column)
         self.color_groups.addButton(color)
@@ -291,20 +396,42 @@ class FilterPanel(QWidget):
         self.collapsibles.append(collapsible)
 
     def get_color_column(self) -> str:
-        """Returns the name of the column currently selected for coloring."""
+        """
+        Retrieves the DataFrame column currently selected for coloring.
+
+        Returns:
+            str: The column name, or None if no color radio button is checked.
+        """
         checked_button = self.color_groups.checkedButton()
         if checked_button:
             return checked_button.property("column_name")
         return None
 
     def get_group_column(self) -> str:
-        """Returns the name of the column currently selected for grouping."""
+        """
+        Retrieves the DataFrame column currently selected for grouping.
+
+        Returns:
+            str: The column name, or None if no group radio button is checked.
+        """
         checked_button = self.aggregate_groups.checkedButton()
         if checked_button:
             return checked_button.property("column_name")
         return None
 
     def apply_filters(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Applies all selected UI filters (date range and categories) to the DataFrame.
+
+        Filters out tasks that fall entirely outside the selected global start/end
+        dates. Also filters by any specifically selected items within the list widgets.
+
+        Args:
+            df (pd.DataFrame): The un-filtered data.
+
+        Returns:
+            pd.DataFrame: A new DataFrame containing only the tasks that match the criteria.
+        """
         if df.empty:
             return df
 
@@ -331,7 +458,10 @@ class FilterPanel(QWidget):
 
     def get_scale_config(self):
         """
-        Returns a tuple of (dtick, tickformat)
+        Retrieves the Plotly timescale parameters based on the selected granularity.
+
+        Returns:
+            tuple: A pair of (dtick, tickformat) strings tailored for Plotly axes.
         """
         text = self.scale_combo.currentText()
         if text == "Dagen":
@@ -347,6 +477,10 @@ class FilterPanel(QWidget):
         return "M1", "%b\n%Y"
 
     def remove_filters(self):
+        """
+        Clears and destroys all dynamically generated filter widgets.
+        Called before rebuilding the panel when a new CSV is loaded.
+        """
         self.options.clear()
         self.selector_widgets.clear()
 

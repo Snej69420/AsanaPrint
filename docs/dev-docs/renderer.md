@@ -1,7 +1,4 @@
 # Gantt Renderer
-
-This module handles the Plotly visualization logic.
-
 ::: Renderer.GanttRenderer
     handler: python
     options:
